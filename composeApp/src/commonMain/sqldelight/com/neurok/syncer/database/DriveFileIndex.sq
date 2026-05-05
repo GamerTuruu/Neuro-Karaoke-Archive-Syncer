@@ -1,0 +1,21 @@
+CREATE TABLE DriveFileIndex (
+    driveFilename TEXT NOT NULL PRIMARY KEY,
+    driveFileId TEXT NOT NULL,
+    fetchedAt INTEGER NOT NULL
+);
+
+upsert:
+INSERT OR REPLACE INTO DriveFileIndex (driveFilename, driveFileId, fetchedAt)
+VALUES (?, ?, ?);
+
+getById:
+SELECT * FROM DriveFileIndex WHERE driveFilename = ?;
+
+getAll:
+SELECT * FROM DriveFileIndex;
+
+getOldestFetchTime:
+SELECT MIN(fetchedAt) AS oldest FROM DriveFileIndex;
+
+deleteAll:
+DELETE FROM DriveFileIndex;

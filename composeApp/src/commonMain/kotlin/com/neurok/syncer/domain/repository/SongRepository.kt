@@ -1,0 +1,21 @@
+package com.neurok.syncer.domain.repository
+
+import com.neurok.syncer.domain.model.SongMetadata
+import com.neurok.syncer.domain.model.StatusCounts
+import com.neurok.syncer.domain.model.SyncStatus
+import kotlinx.coroutines.flow.Flow
+
+interface SongRepository {
+    fun observeAll(): Flow<List<SongMetadata>>
+    fun observeByStatus(status: SyncStatus): Flow<List<SongMetadata>>
+    suspend fun getByXxHash(xxHash: String): SongMetadata?
+    suspend fun upsert(song: SongMetadata, syncStatus: SyncStatus, localFileUri: String? = null)
+    suspend fun updateStatus(xxHash: String, status: SyncStatus)
+    suspend fun updateLocalUri(xxHash: String, localFileUri: String, status: SyncStatus)
+    suspend fun updateExcluded(xxHash: String, excluded: Boolean)
+    suspend fun updateHjsonSha(xxHash: String, sha: String, newStatus: SyncStatus)
+    suspend fun getStatusCounts(): StatusCounts
+    fun searchSongs(query: String): Flow<List<SongMetadata>>
+    suspend fun getAll(): List<SongMetadata>
+    suspend fun getNonExcluded(): List<SongMetadata>
+}

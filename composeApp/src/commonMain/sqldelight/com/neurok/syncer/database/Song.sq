@@ -1,0 +1,65 @@
+CREATE TABLE Song (
+    xxHash TEXT NOT NULL PRIMARY KEY,
+    date TEXT NOT NULL,
+    title TEXT NOT NULL,
+    titleOG TEXT,
+    identify TEXT,
+    artist TEXT NOT NULL,
+    artistOG TEXT,
+    coverArtist TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    discNumber INTEGER NOT NULL,
+    track TEXT NOT NULL,
+    comment TEXT,
+    special INTEGER NOT NULL DEFAULT 0,
+    hjsonPath TEXT NOT NULL,
+    hjsonSha TEXT NOT NULL,
+    isExcluded INTEGER NOT NULL DEFAULT 0,
+    localFileUri TEXT,
+    syncStatus TEXT NOT NULL DEFAULT 'NEW_AVAILABLE'
+);
+
+CREATE INDEX idx_song_disc ON Song(discNumber);
+CREATE INDEX idx_song_excluded ON Song(isExcluded);
+CREATE INDEX idx_song_status ON Song(syncStatus);
+
+selectAll:
+SELECT * FROM Song ORDER BY discNumber ASC, track ASC;
+
+selectByXxHash:
+SELECT * FROM Song WHERE xxHash = ?;
+
+selectByStatus:
+SELECT * FROM Song WHERE syncStatus = ?;
+
+selectExcluded:
+SELECT * FROM Song WHERE isExcluded = 1;
+
+selectNonExcluded:
+SELECT * FROM Song WHERE isExcluded = 0;
+
+upsert:
+INSERT OR REPLACE INTO Song (xxHash, date, title, titleOG, identify, artist, artistOG,
+    coverArtist, version, discNumber, track, comment, special, hjsonPath, hjsonSha,
+    isExcluded, localFileUri, syncStatus)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateStatus:
+UPDATE Song SET syncStatus = ? WHERE xxHash = ?;
+
+updateLocalUri:
+UPDATE Song SET localFileUri = ?, syncStatus = ? WHERE xxHash = ?;
+
+updateExcluded:
+UPDATE Song SET isExcluded = ? WHERE xxHash = ?;
+
+updateHjsonSha:
+UPDATE Song SET hjsonSha = ?, syncStatus = ? WHERE xxHash = ?;
+
+countByStatus:
+SELECT syncStatus, COUNT(*) AS cnt FROM Song GROUP BY syncStatus;
+
+searchSongs:
+SELECT * FROM Song
+WHERE title LIKE :query OR titleOG LIKE :query OR artist LIKE :query OR artistOG LIKE :query
+ORDER BY discNumber ASC, track ASC;

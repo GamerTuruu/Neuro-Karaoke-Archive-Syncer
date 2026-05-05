@@ -1,0 +1,80 @@
+package com.neurok.syncer
+
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.remember
+import androidx.work.*
+import com.neurok.syncer.domain.model.SettingsKeys
+import com.neurok.syncer.domain.repository.SettingsRepository
+import com.neurok.syncer.sync.SyncWorker
+import com.neurok.syncer.ui.navigation.AppNavigation
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import org.koin.android.ext.android.inject
+import java.util.concurrent.TimeUnit
+
+class MainActivity : ComponentActivity() {
+
+    private val settingsRepository: SettingsRepository by inject()
+    private var pendingFolderCallback: ((String) -> Unit)? = null
+
+    private val folderPickerLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            // Persist the URI permission so we can access it across restarts
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            val uriStr = uri.toString()
+            CoroutineScope(Dispatchers.IO).launch {
+                settingsRepository.set(SettingsKeys.LOCAL_FOLDER_URI, uriStr)
+            }
+            pendingFolderCallback?.invoke(uriStr)
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        setContent {
+            MaterialTheme {
+                AppNavigation(
+                    onPickFolder = { folderPickerLauncher.launch(null) },
+                )
+            }
+        }
+
+        scheduleSyncIfNeeded()
+    }
+
+    private fun scheduleSyncIfNeeded() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val hours = settingsRepository.getInt(SettingsKeys.SYNC_SCHEDULE_HOURS, 24)
+            if (hours <= 0) {
+                WorkManager.getInstance(this@MainActivity).cancelUniqueWork(SyncWorker.WORK_NAME)
+                return@launch
+            }
+            val request = PeriodicWorkRequestBuilder<SyncWorker>(hours.toLong(), TimeUnit.HOURS)
+                .setConstraints(
+                    Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build()
+                )
+                .build()
+            WorkManager.getInstance(this@MainActivity).enqueueUniquePeriodicWork(
+                SyncWorker.WORK_NAME,
+                ExistingPeriodicWorkPolicy.KEEP,
+                request,
+            )
+        }
+    }
+}
