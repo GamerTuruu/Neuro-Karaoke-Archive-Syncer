@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Base64
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -110,7 +111,7 @@ android {
             if (keystoreB64 != null) {
                 // CI: decode keystore from env variable
                 val ksFile = File(System.getProperty("java.io.tmpdir"), "release.jks")
-                ksFile.writeBytes(java.util.Base64.getDecoder().decode(keystoreB64))
+                ksFile.writeBytes(Base64.getDecoder().decode(keystoreB64))
                 storeFile = ksFile
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("KEY_ALIAS")
