@@ -19,7 +19,7 @@ An Android app that keeps your local [Neuro Karaoke Archive](https://drive.googl
 
 ## Setup
 
-1. Install the APK (download from [Releases](../../releases))
+1. Install the APK (download from [Releases](https://github.com/GamerTuruu/Neuro-Karaoke-Archive-Syncer/releases))
 2. Open the app → **Settings**
 3. Pick your local MP3 folder
 4. Enter your Google Drive API key
@@ -29,7 +29,7 @@ An Android app that keeps your local [Neuro Karaoke Archive](https://drive.googl
 
 ```bash
 # Clone
-git clone https://github.com/YOUR_USERNAME/Neuro-Karaoke-Archive-Syncer.git
+git clone https://github.com/GamerTuruu/Neuro-Karaoke-Archive-Syncer.git
 cd Neuro-Karaoke-Archive-Syncer
 
 # Build debug APK
