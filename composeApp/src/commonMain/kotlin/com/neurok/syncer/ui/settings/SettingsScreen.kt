@@ -240,7 +240,9 @@ fun SettingsScreen(
             // ── Google Drive API Key ────────────────────────────────────────
             SectionTitle("Google Drive API Key")
             Text(
-                "Only needed to download new songs from Google Drive. If you already have all files locally, you can leave this blank.",
+                "Required to download new songs from Google Drive. " +
+                "Without a key, Sync will only apply tags to songs you already have — new songs will be skipped. " +
+                "Get a free key from Google Cloud Console → APIs & Services → Credentials.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

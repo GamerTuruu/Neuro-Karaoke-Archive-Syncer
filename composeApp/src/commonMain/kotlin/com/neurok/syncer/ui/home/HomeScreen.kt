@@ -22,24 +22,35 @@ fun HomeScreen(modifier: Modifier = Modifier) {
 
     if (state.showSyncConfirm) {
         ConfirmDialog(
-            title = "Start Sync",
-            message = "This will scan your local folder, fetch metadata from GitHub, and apply tags to any songs that changed. Continue?",
-            confirmLabel = "Sync Now",
-            onConfirm = { vm.sync() },
+            title = "Apply Tags & Download",
+            message = buildString {
+                append("This will:\n• Apply updated ID3 tags to any songs that changed.\n")
+                if (state.counts.newAvailable > 0) {
+                    if (state.driveApiKeyConfigured) {
+                        append("• Download ${state.counts.newAvailable} new song(s) from Google Drive.\n")
+                    } else {
+                        append("• Skip ${state.counts.newAvailable} new song(s) — no Drive API key set.\n")
+                    }
+                }
+                append("\nThis may take a while for large downloads.")
+            },
+            confirmLabel = "Sync",
+            onConfirm = { vm.doSync() },
             onDismiss = { vm.dismissSyncConfirm() },
         )
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Sync") }) }
+        topBar = { TopAppBar(title = { Text("Neuro Karaoke Syncer") }) }
     ) { padding ->
         Column(
             modifier = modifier
                 .padding(padding)
                 .padding(16.dp)
                 .fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // ── Warnings ──────────────────────────────────────────────────────
             if (!state.folderConfigured) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                     Text(
@@ -54,12 +65,12 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            "★ ${state.counts.newAvailable} songs are available to download",
+                            "★ ${state.counts.newAvailable} new song(s) available to download",
                             color = MaterialTheme.colorScheme.onTertiaryContainer,
                             fontWeight = FontWeight.SemiBold,
                         )
                         Text(
-                            "A Google Drive API key is required to download songs. Add one in More → Settings.",
+                            "Add a Google Drive API key in Settings to download them.",
                             color = MaterialTheme.colorScheme.onTertiaryContainer,
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -67,11 +78,12 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 }
             }
 
+            // ── Status chips ──────────────────────────────────────────────────
             Text(
-                text = if (state.lastSyncTime > 0L) "Last synced: ${formatTime(state.lastSyncTime)}" else "Never synced",
-                style = MaterialTheme.typography.bodyMedium,
+                text = if (state.lastSyncTime > 0L) "Last fetched: ${formatTime(state.lastSyncTime)}" else "Never fetched",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatusChip("✓", state.counts.upToDate, "Up to date", MaterialTheme.colorScheme.primary)
                 StatusChip("↑", state.counts.needsUpdate, "Updates", MaterialTheme.colorScheme.secondary)
@@ -81,36 +93,127 @@ fun HomeScreen(modifier: Modifier = Modifier) {
                 StatusChip("?", state.counts.orphans, "Orphan", MaterialTheme.colorScheme.error)
                 StatusChip("✗", state.counts.excluded, "Excluded", MaterialTheme.colorScheme.outline)
             }
-
             Text("Storage: ${formatBytes(state.storageBytes)}", style = MaterialTheme.typography.bodySmall)
 
-            Button(
-                onClick = { vm.requestSync() },
-                enabled = !state.isSyncing && state.folderConfigured,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (state.isSyncing) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    Spacer(Modifier.width(8.dp))
+            HorizontalDivider()
+
+            // ── Action buttons ────────────────────────────────────────────────
+            val busy = state.isFetching || state.isSyncing
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Fetch button: scan local + pull GitHub metadata
+                Button(
+                    onClick = { vm.doFetch() },
+                    enabled = !busy && state.folderConfigured,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    if (state.isFetching) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(if (state.isFetching) "Fetching…" else "Fetch")
                 }
-                Text(if (state.isSyncing) "Syncing…" else "Sync Now")
+
+                // Sync button: apply tags + download new songs
+                OutlinedButton(
+                    onClick = { vm.requestSync() },
+                    enabled = !busy && state.folderConfigured,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    if (state.isSyncing) {
+                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    Text(if (state.isSyncing) "Syncing…" else "Sync")
+                }
             }
 
-            state.syncProgress?.let { progress ->
-                when (progress) {
-                    is SyncProgress.ScanningLocal ->
-                        LinearProgressIndicator(
-                            progress = { if (progress.total > 0) progress.current.toFloat() / progress.total else 0f },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    is SyncProgress.FetchingMetadata -> Text(progress.message, style = MaterialTheme.typography.bodySmall)
-                    is SyncProgress.ApplyingTags -> Text("Applying tags (${progress.current}/${progress.total}): ${progress.songTitle}", style = MaterialTheme.typography.bodySmall)
-                    is SyncProgress.Completed -> Text("Done: ${progress.updated} updated, ${progress.newAvailable} new available", style = MaterialTheme.typography.bodySmall)
-                    is SyncProgress.Error -> Text("Error: ${progress.message}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                    else -> Unit
+            // "Fetched X ago" hint
+            state.lastFetchTimeMs?.let { fetchTime ->
+                val agoSecs = (System.currentTimeMillis() - fetchTime) / 1000
+                val agoText = when {
+                    agoSecs < 60 -> "just now"
+                    agoSecs < 3600 -> "${agoSecs / 60} min ago"
+                    else -> "${agoSecs / 3600}h ago"
                 }
+                Text(
+                    "Fetched $agoText — review counts above then tap Sync to apply changes.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            // ── Fetch progress ────────────────────────────────────────────────
+            state.fetchProgress?.let { progress ->
+                ProgressSection(progress, label = "Fetch")
+            }
+
+            // ── Sync progress ─────────────────────────────────────────────────
+            state.syncProgress?.let { progress ->
+                ProgressSection(progress, label = "Sync")
             }
         }
+    }
+}
+
+@Composable
+private fun ProgressSection(progress: SyncProgress, label: String) {
+    when (progress) {
+        is SyncProgress.ScanningLocal ->
+            Column {
+                Text("$label: scanning local files…", style = MaterialTheme.typography.bodySmall)
+                LinearProgressIndicator(
+                    progress = { if (progress.total > 0) progress.current.toFloat() / progress.total else 0f },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                )
+            }
+        is SyncProgress.FetchingMetadata ->
+            Text("$label: ${progress.message}", style = MaterialTheme.typography.bodySmall)
+        is SyncProgress.ApplyingTags ->
+            Column {
+                Text(
+                    "$label: applying tags (${progress.current}/${progress.total}) — ${progress.songTitle}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                LinearProgressIndicator(
+                    progress = { progress.current.toFloat() / progress.total },
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                )
+            }
+        is SyncProgress.Downloading ->
+            Column {
+                Text(
+                    "$label: downloading (${progress.current}/${progress.total}) — ${progress.filename}",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                if (progress.bytesTotal > 0) {
+                    LinearProgressIndicator(
+                        progress = { progress.bytesProgress.toFloat() / progress.bytesTotal },
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    )
+                } else {
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+                }
+            }
+        is SyncProgress.Completed ->
+            Text(
+                buildString {
+                    append("$label complete!")
+                    if (progress.updated > 0) append(" ${progress.updated} tag(s) applied.")
+                    if (progress.downloaded > 0) append(" ${progress.downloaded} song(s) downloaded.")
+                    if (progress.newAvailable > 0) append(" ${progress.newAvailable} still awaiting download.")
+                    if (progress.updated == 0 && progress.downloaded == 0) append(" Everything is up to date.")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        is SyncProgress.Error ->
+            Text(
+                "$label error: ${progress.message}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        else -> Unit
     }
 }
 

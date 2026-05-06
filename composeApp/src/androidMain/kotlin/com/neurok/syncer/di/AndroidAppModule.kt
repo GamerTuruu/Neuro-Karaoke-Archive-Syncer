@@ -14,8 +14,10 @@ import com.neurok.syncer.domain.repository.SettingsRepository
 import com.neurok.syncer.domain.repository.SongRepository
 import com.neurok.syncer.domain.usecase.ApplyTagsUseCase
 import com.neurok.syncer.domain.usecase.DownloadSongUseCase
+import com.neurok.syncer.domain.usecase.FetchMetadataUseCase
 import com.neurok.syncer.domain.usecase.FullSyncUseCase
 import com.neurok.syncer.domain.usecase.ScanLocalFilesUseCase
+import com.neurok.syncer.domain.usecase.SyncTagsAndDownloadUseCase
 import com.neurok.syncer.platform.FileStorage
 import com.neurok.syncer.platform.Mp3TagHandler
 import io.ktor.client.*
@@ -61,5 +63,7 @@ val androidAppModule = module {
     singleOf(::ScanLocalFilesUseCase)
     singleOf(::ApplyTagsUseCase)
     singleOf(::DownloadSongUseCase)
+    singleOf(::FetchMetadataUseCase)
+    singleOf(::SyncTagsAndDownloadUseCase)
     singleOf(::FullSyncUseCase)
 }

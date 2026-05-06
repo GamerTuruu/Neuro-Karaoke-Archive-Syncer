@@ -102,6 +102,14 @@ class SongRepositoryImpl(private val db: NKSyncerDatabase) : SongRepository {
     override suspend fun getNonExcluded(): List<SongMetadata> = withContext(Dispatchers.IO) {
         queries.selectNonExcluded().executeAsList().map(Song::toDomain)
     }
+
+    override suspend fun getByStatus(status: SyncStatus): List<SongMetadata> = withContext(Dispatchers.IO) {
+        queries.selectByStatus(status.name).executeAsList().map(Song::toDomain)
+    }
+
+    override suspend fun getLocalUri(xxHash: String): String? = withContext(Dispatchers.IO) {
+        queries.selectByXxHash(xxHash).executeAsOneOrNull()?.localFileUri
+    }
 }
 
 private fun Song.toDomain() = SongMetadata(

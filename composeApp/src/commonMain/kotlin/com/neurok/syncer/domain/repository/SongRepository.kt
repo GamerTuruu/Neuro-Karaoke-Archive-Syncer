@@ -18,4 +18,8 @@ interface SongRepository {
     fun searchSongs(query: String): Flow<List<SongMetadata>>
     suspend fun getAll(): List<SongMetadata>
     suspend fun getNonExcluded(): List<SongMetadata>
+    /** Synchronous snapshot of all songs with the given status. */
+    suspend fun getByStatus(status: SyncStatus): List<SongMetadata>
+    /** Returns the locally-stored file URI for a song, or null if not present. */
+    suspend fun getLocalUri(xxHash: String): String?
 }
