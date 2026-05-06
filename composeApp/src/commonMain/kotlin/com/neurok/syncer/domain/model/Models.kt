@@ -95,4 +95,6 @@ object SettingsKeys {
     const val DRIVE_FOLDER_ID = "drive_folder_id"   // default: archive folder
     const val GITHUB_REPO = "github_repo"           // format: "owner/repo"
     const val THEME = "theme"                       // "dark" | "light" | "system"
+    /** published_at of the last successfully downloaded metadata-zip.zip release. */
+    const val METADATA_ZIP_PUBLISHED_AT = "metadata_zip_published_at"
 }

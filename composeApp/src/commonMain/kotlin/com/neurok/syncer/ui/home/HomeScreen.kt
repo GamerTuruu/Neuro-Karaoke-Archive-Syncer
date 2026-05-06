@@ -98,33 +98,41 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             HorizontalDivider()
 
             // ── Action buttons ────────────────────────────────────────────────
-            val busy = state.isFetching || state.isSyncing
-
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Fetch button: scan local + pull GitHub metadata
+                // Fetch button: tap once to fetch, tap again while fetching to cancel
                 Button(
-                    onClick = { vm.doFetch() },
-                    enabled = !busy && state.folderConfigured,
+                    onClick = { if (state.isFetching) vm.cancelFetch() else vm.doFetch() },
+                    enabled = !state.isSyncing && state.folderConfigured,
                     modifier = Modifier.weight(1f),
+                    colors = if (state.isFetching)
+                        ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                    else ButtonDefaults.buttonColors(),
                 ) {
                     if (state.isFetching) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp), strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
                         Spacer(Modifier.width(8.dp))
+                        Text("Cancel Fetch", color = MaterialTheme.colorScheme.onErrorContainer)
+                    } else {
+                        Text("Fetch")
                     }
-                    Text(if (state.isFetching) "Fetching…" else "Fetch")
                 }
 
-                // Sync button: apply tags + download new songs
+                // Sync button: tap once to sync, tap again while syncing to cancel
                 OutlinedButton(
-                    onClick = { vm.requestSync() },
-                    enabled = !busy && state.folderConfigured,
+                    onClick = { if (state.isSyncing) vm.cancelSync() else vm.requestSync() },
+                    enabled = !state.isFetching && state.folderConfigured,
                     modifier = Modifier.weight(1f),
                 ) {
                     if (state.isSyncing) {
                         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
+                        Text("Cancel Sync")
+                    } else {
+                        Text("Sync")
                     }
-                    Text(if (state.isSyncing) "Syncing…" else "Sync")
                 }
             }
 

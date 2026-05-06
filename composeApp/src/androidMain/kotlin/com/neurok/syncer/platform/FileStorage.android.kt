@@ -61,6 +61,8 @@ actual class FileStorage(private val context: Context) {
             val treeUri = Uri.parse(folderUri)
             val dir = DocumentFile.fromTreeUri(context, treeUri)
                 ?: throw IllegalStateException("Cannot open folder: $folderUri")
+            // Delete any existing file with this name so we don't create a "filename (1).mp3" duplicate
+            dir.findFile(filename)?.delete()
             val file = dir.createFile("audio/mpeg", filename)
                 ?: throw IllegalStateException("Cannot create file: $filename")
             context.contentResolver.openOutputStream(file.uri)?.use { it.write(bytes) }
@@ -93,4 +95,18 @@ actual class FileStorage(private val context: Context) {
             folderUri
         }
     }
+
+    actual fun getAppCacheDir(): String = context.cacheDir.absolutePath
+
+    actual suspend fun getOrCreateSubFolder(parentUri: String, subFolderName: String): String =
+        withContext(Dispatchers.IO) {
+            val treeUri = Uri.parse(parentUri)
+            val dir = DocumentFile.fromTreeUri(context, treeUri)
+                ?: throw IllegalStateException("Cannot open folder: $parentUri")
+            val existing = dir.findFile(subFolderName)
+            if (existing != null && existing.isDirectory) return@withContext existing.uri.toString()
+            val created = dir.createDirectory(subFolderName)
+                ?: throw IllegalStateException("Cannot create sub-folder: $subFolderName")
+            created.uri.toString()
+        }
 }

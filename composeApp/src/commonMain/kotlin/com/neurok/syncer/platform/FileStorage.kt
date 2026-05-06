@@ -29,4 +29,16 @@ expect class FileStorage {
 
     /** Returns the display path for a folder URI (shown in Settings). */
     fun getDisplayPath(folderUri: String): String
+
+    /**
+     * Returns a platform-specific path to the app's private cache directory.
+     * Used by metadata zip caching. Always returns an existing directory.
+     */
+    fun getAppCacheDir(): String
+
+    /**
+     * Returns the URI/path to a named sub-folder inside [parentUri], creating
+     * it if it does not already exist.
+     */
+    suspend fun getOrCreateSubFolder(parentUri: String, subFolderName: String): String
 }

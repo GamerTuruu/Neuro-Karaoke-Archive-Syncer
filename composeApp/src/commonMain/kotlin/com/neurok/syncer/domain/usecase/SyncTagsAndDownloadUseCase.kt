@@ -90,6 +90,13 @@ class SyncTagsAndDownloadUseCase(
                     val driveName = song.hjsonPath.substringAfterLast('/').removeSuffix(".hjson") + ".mp3"
                     val driveFileId = driveRepository.getFileId(driveName) ?: continue
 
+                    // Put the download into the matching DISC sub-folder (create it if needed)
+                    val discFolder = song.hjsonPath.substringBefore("/", "").trim()
+                    val targetFolderUri = if (discFolder.isNotBlank())
+                        try { fileStorage.getOrCreateSubFolder(folderUri, discFolder) }
+                        catch (_: Exception) { folderUri }
+                    else folderUri
+
                     emit(SyncProgress.Downloading(index + 1, toDownload.size, driveName, 0L, 0L))
                     songRepository.updateStatus(song.xxHash, SyncStatus.DOWNLOADING)
                     try {
@@ -104,18 +111,24 @@ class SyncTagsAndDownloadUseCase(
                         var offset = 0
                         for (chunk in chunks) { chunk.copyInto(bytes, offset); offset += chunk.size }
 
-                        val localUri = fileStorage.writeFile(folderUri, driveName, bytes)
-                        tagHandler.applyStandardTags(
-                            fileUri = localUri,
-                            title = preset.buildTitle(song),
-                            artist = preset.buildArtist(song),
-                            album = preset.buildAlbum(song),
-                            track = song.track,
-                            discNumber = song.discNumber,
-                            date = song.date,
-                        )
+                        val localUri = fileStorage.writeFile(targetFolderUri, driveName, bytes)
+                        // Register the file BEFORE tagging — this prevents re-downloading if tagging fails
                         songRepository.updateLocalUri(song.xxHash, localUri, SyncStatus.UP_TO_DATE)
                         downloaded++
+                        try {
+                            tagHandler.applyStandardTags(
+                                fileUri = localUri,
+                                title = preset.buildTitle(song),
+                                artist = preset.buildArtist(song),
+                                album = preset.buildAlbum(song),
+                                track = song.track,
+                                discNumber = song.discNumber,
+                                date = song.date,
+                            )
+                        } catch (_: Exception) {
+                            // Tag application failed — file is registered as UP_TO_DATE so it
+                            // won't be re-downloaded; tags will be re-applied on next Sync.
+                        }
                     } catch (_: Exception) {
                         // Revert transient DOWNLOADING status so the song can be retried
                         songRepository.updateStatus(song.xxHash, SyncStatus.NEW_AVAILABLE)

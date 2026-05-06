@@ -43,4 +43,13 @@ actual class FileStorage {
         }
 
     actual fun getDisplayPath(folderUri: String): String = folderUri
+
+    actual fun getAppCacheDir(): String =
+        java.io.File(System.getProperty("user.home"), ".neurok_syncer")
+            .also { it.mkdirs() }.absolutePath
+
+    actual suspend fun getOrCreateSubFolder(parentUri: String, subFolderName: String): String =
+        withContext(Dispatchers.IO) {
+            File(parentUri, subFolderName).also { it.mkdirs() }.absolutePath
+        }
 }

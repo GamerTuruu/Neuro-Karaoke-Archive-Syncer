@@ -10,6 +10,7 @@ import com.neurok.syncer.domain.repository.SongRepository
 import com.neurok.syncer.domain.usecase.FetchMetadataUseCase
 import com.neurok.syncer.domain.usecase.SyncTagsAndDownloadUseCase
 import com.neurok.syncer.platform.FileStorage
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -43,6 +44,9 @@ class HomeViewModel(
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state
 
+    private var fetchJob: Job? = null
+    private var syncJob: Job? = null
+
     init {
         viewModelScope.launch { doRefresh() }
     }
@@ -55,19 +59,32 @@ class HomeViewModel(
     /** Fetch: scan local files + pull GitHub metadata. Updates status counts. */
     fun doFetch() {
         if (_state.value.isFetching || _state.value.isSyncing) return
-        viewModelScope.launch {
+        fetchJob = viewModelScope.launch {
             _state.update { it.copy(isFetching = true, fetchProgress = null) }
-            fetchMetadataUseCase.execute().collect { progress ->
-                _state.update { it.copy(fetchProgress = progress) }
-                if (progress is SyncProgress.Completed || progress is SyncProgress.Error) {
-                    _state.update {
-                        it.copy(isFetching = false, lastFetchTimeMs = System.currentTimeMillis())
+            try {
+                fetchMetadataUseCase.execute().collect { progress ->
+                    _state.update { it.copy(fetchProgress = progress) }
+                    if (progress is SyncProgress.Completed || progress is SyncProgress.Error) {
+                        _state.update {
+                            it.copy(isFetching = false, lastFetchTimeMs = System.currentTimeMillis())
+                        }
+                        doRefresh()
                     }
-                    doRefresh()
                 }
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                _state.update { it.copy(
+                    isFetching = false,
+                    fetchProgress = SyncProgress.Error("Fetch cancelled"),
+                ) }
+                throw kotlinx.coroutines.CancellationException("Fetch cancelled")
+            } finally {
+                fetchJob = null
             }
         }
     }
+
+    /** Cancel an in-progress Fetch. */
+    fun cancelFetch() { fetchJob?.cancel() }
 
     /** Show confirmation before running Sync (tag + download). */
     fun requestSync() {
@@ -81,17 +98,30 @@ class HomeViewModel(
     fun doSync() {
         _state.update { it.copy(showSyncConfirm = false) }
         if (_state.value.isFetching || _state.value.isSyncing) return
-        viewModelScope.launch {
+        syncJob = viewModelScope.launch {
             _state.update { it.copy(isSyncing = true, syncProgress = null) }
-            syncTagsAndDownloadUseCase.execute().collect { progress ->
-                _state.update { it.copy(syncProgress = progress) }
-                if (progress is SyncProgress.Completed || progress is SyncProgress.Error) {
-                    _state.update { it.copy(isSyncing = false) }
-                    doRefresh()
+            try {
+                syncTagsAndDownloadUseCase.execute().collect { progress ->
+                    _state.update { it.copy(syncProgress = progress) }
+                    if (progress is SyncProgress.Completed || progress is SyncProgress.Error) {
+                        _state.update { it.copy(isSyncing = false) }
+                        doRefresh()
+                    }
                 }
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                _state.update { it.copy(
+                    isSyncing = false,
+                    syncProgress = SyncProgress.Error("Sync cancelled"),
+                ) }
+                throw kotlinx.coroutines.CancellationException("Sync cancelled")
+            } finally {
+                syncJob = null
             }
         }
     }
+
+    /** Cancel an in-progress Sync. */
+    fun cancelSync() { syncJob?.cancel() }
 
     private suspend fun doRefresh() {
         val folderUri = settingsRepository.get(SettingsKeys.LOCAL_FOLDER_URI)
