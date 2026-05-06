@@ -10,6 +10,7 @@ package com.neurok.syncer.domain.model
 interface TagPreset {
     val id: String
     val displayName: String
+    val description: String
 
     fun buildTitle(meta: SongMetadata): String
     fun buildArtist(meta: SongMetadata): String
@@ -42,6 +43,7 @@ object TagPresetRegistry {
 object DefaultPreset : TagPreset {
     override val id = "default"
     override val displayName = "Default"
+    override val description = "Shows both original and English names where available. Matches how files ship from Google Drive."
 
     override fun buildTitle(meta: SongMetadata): String {
         val base = if (meta.titleOG != null) "${meta.titleOG} (${meta.title})" else meta.title
@@ -60,6 +62,7 @@ object DefaultPreset : TagPreset {
 object OGOnlyPreset : TagPreset {
     override val id = "og_only"
     override val displayName = "OG Only"
+    override val description = "Uses original (Japanese/non-English) titles and artists where available. Best for players that support CJK characters."
 
     override fun buildTitle(meta: SongMetadata): String {
         val base = meta.titleOG ?: meta.title
@@ -77,6 +80,7 @@ object OGOnlyPreset : TagPreset {
 object EnglishOnlyPreset : TagPreset {
     override val id = "english_only"
     override val displayName = "English Only"
+    override val description = "Always uses English titles and artists. Best for players that don't support CJK characters."
 
     override fun buildTitle(meta: SongMetadata): String =
         if (meta.identify != null) "${meta.title} - ${meta.identify}" else meta.title

@@ -1,65 +1,125 @@
 package com.neurok.syncer.ui.navigation
 
-import androidx.compose.runtime.Composable
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.neurok.syncer.ui.browser.BrowserScreen
 import com.neurok.syncer.ui.detail.SongDetailScreen
 import com.neurok.syncer.ui.home.HomeScreen
+import com.neurok.syncer.ui.more.MoreScreen
+import com.neurok.syncer.ui.preset.PresetScreen
 import com.neurok.syncer.ui.settings.SettingsScreen
 
-sealed class Route(val path: String) {
-    data object Home : Route("home")
-    data object Browser : Route("browser")
-    data object Settings : Route("settings")
-    data object SongDetail : Route("detail/{xxHash}") {
-        fun withHash(xxHash: String) = "detail/$xxHash"
-    }
-}
+private val TOP_LEVEL_ROUTES = setOf("sync", "search", "preset", "more")
 
 @Composable
 fun AppNavigation(
-    onPickFolder: () -> Unit,
+    /** Called when the user wants to pick a folder. The callback receives the resulting URI. */
+    onPickFolderFromActivity: (callback: (String) -> Unit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
 
-    NavHost(
-        navController = navController,
-        startDestination = Route.Home.path,
+    Scaffold(
         modifier = modifier,
-    ) {
-        composable(Route.Home.path) {
-            HomeScreen(
-                onNavigateToBrowser = { navController.navigate(Route.Browser.path) },
-                onNavigateToSettings = { navController.navigate(Route.Settings.path) },
-            )
+        bottomBar = {
+            AnimatedVisibility(
+                visible = currentRoute in TOP_LEVEL_ROUTES,
+                enter = slideInVertically { it },
+                exit = slideOutVertically { it },
+            ) {
+                NavigationBar {
+                    NavigationBarItem(
+                        selected = currentRoute == "sync",
+                        onClick = { navController.navigateTab("sync") },
+                        icon = { Icon(Icons.Filled.Sync, null) },
+                        label = { Text("Sync") },
+                    )
+                    NavigationBarItem(
+                        selected = currentRoute == "search",
+                        onClick = { navController.navigateTab("search") },
+                        icon = { Icon(Icons.Filled.Search, null) },
+                        label = { Text("Search") },
+                    )
+                    NavigationBarItem(
+                        selected = currentRoute == "preset",
+                        onClick = { navController.navigateTab("preset") },
+                        icon = { Icon(Icons.Filled.Tune, null) },
+                        label = { Text("Preset") },
+                    )
+                    NavigationBarItem(
+                        selected = currentRoute == "more",
+                        onClick = { navController.navigateTab("more") },
+                        icon = { Icon(Icons.Filled.MoreHoriz, null) },
+                        label = { Text("More") },
+                    )
+                }
+            }
         }
-        composable(Route.Browser.path) {
-            BrowserScreen(
-                onNavigateUp = { navController.popBackStack() },
-                onSongClick = { xxHash -> navController.navigate(Route.SongDetail.withHash(xxHash)) },
-            )
-        }
-        composable(Route.Settings.path) {
-            SettingsScreen(
-                onNavigateUp = { navController.popBackStack() },
-                onPickFolder = onPickFolder,
-            )
-        }
-        composable(
-            route = Route.SongDetail.path,
-            arguments = listOf(navArgument("xxHash") { type = NavType.StringType })
-        ) { back ->
-            val xxHash = back.arguments?.getString("xxHash") ?: return@composable
-            SongDetailScreen(
-                xxHash = xxHash,
-                onNavigateUp = { navController.popBackStack() },
-            )
+    ) { padding ->
+        NavHost(
+            navController = navController,
+            startDestination = "sync",
+            modifier = Modifier,
+        ) {
+            composable("sync") {
+                HomeScreen(modifier = Modifier)
+            }
+            composable("search") {
+                BrowserScreen(
+                    onSongClick = { xxHash -> navController.navigate("detail/$xxHash") },
+                )
+            }
+            composable("preset") {
+                PresetScreen()
+            }
+            composable("more") {
+                MoreScreen(
+                    onNavigateToSettings = { navController.navigate("settings") },
+                )
+            }
+            composable("settings") {
+                SettingsScreen(
+                    onNavigateUp = { navController.popBackStack() },
+                    onPickFolder = { callback -> onPickFolderFromActivity(callback) },
+                )
+            }
+            composable(
+                route = "detail/{xxHash}",
+                arguments = listOf(navArgument("xxHash") { type = NavType.StringType }),
+            ) { back ->
+                val xxHash = back.arguments?.getString("xxHash") ?: return@composable
+                SongDetailScreen(
+                    xxHash = xxHash,
+                    onNavigateUp = { navController.popBackStack() },
+                )
+            }
         }
     }
 }
+
+private fun androidx.navigation.NavController.navigateTab(route: String) {
+    navigate(route) {
+        popUpTo(graph.startDestinationId) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+

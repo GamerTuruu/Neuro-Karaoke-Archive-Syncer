@@ -6,6 +6,7 @@ import com.neurok.syncer.ui.home.HomeViewModel
 import com.neurok.syncer.ui.browser.BrowserViewModel
 import com.neurok.syncer.ui.settings.SettingsViewModel
 import com.neurok.syncer.ui.detail.SongDetailViewModel
+import com.neurok.syncer.ui.preset.PresetViewModel
 import org.koin.android.ext.koin.androidContext
 import org.koin.android.ext.koin.androidLogger
 import org.koin.androidx.workmanager.koin.workManagerFactory
@@ -27,6 +28,7 @@ class NKSyncerApp : Application() {
                     viewModelOf(::BrowserViewModel)
                     viewModelOf(::SettingsViewModel)
                     viewModelOf(::SongDetailViewModel)
+                    viewModelOf(::PresetViewModel)
                 }
             )
         }

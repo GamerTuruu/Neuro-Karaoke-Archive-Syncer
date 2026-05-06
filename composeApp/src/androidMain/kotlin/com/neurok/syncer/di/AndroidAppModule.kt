@@ -55,7 +55,7 @@ val androidAppModule = module {
     single<SongRepository> { SongRepositoryImpl(get()) }
     single<SettingsRepository> { SettingsRepositoryImpl(get()) }
     single<DriveRepository> { DriveRepositoryImpl(get(), get()) }
-    single<MetadataRepository> { GithubMetadataRepository(get(), get()) }
+    single<MetadataRepository> { GithubMetadataRepository(get(), get(), get()) }
 
     // Use cases
     singleOf(::ScanLocalFilesUseCase)

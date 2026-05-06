@@ -1,6 +1,5 @@
 package com.neurok.syncer
 
-import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -8,7 +7,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.runtime.remember
 import androidx.work.*
 import com.neurok.syncer.domain.model.SettingsKeys
 import com.neurok.syncer.domain.repository.SettingsRepository
@@ -35,10 +33,8 @@ class MainActivity : ComponentActivity() {
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             )
             val uriStr = uri.toString()
-            CoroutineScope(Dispatchers.IO).launch {
-                settingsRepository.set(SettingsKeys.LOCAL_FOLDER_URI, uriStr)
-            }
             pendingFolderCallback?.invoke(uriStr)
+            pendingFolderCallback = null
         }
     }
 
@@ -48,7 +44,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme {
                 AppNavigation(
-                    onPickFolder = { folderPickerLauncher.launch(null) },
+                    onPickFolderFromActivity = { callback ->
+                        pendingFolderCallback = callback
+                        folderPickerLauncher.launch(null)
+                    },
                 )
             }
         }

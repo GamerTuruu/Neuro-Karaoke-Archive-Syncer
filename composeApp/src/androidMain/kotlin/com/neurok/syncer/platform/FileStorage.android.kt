@@ -50,6 +50,22 @@ actual class FileStorage(private val context: Context) {
             file.uri.toString()
         }
 
+    actual suspend fun renameFile(currentUri: String, newFilename: String): String =
+        withContext(Dispatchers.IO) {
+            val docFile = DocumentFile.fromSingleUri(context, Uri.parse(currentUri))
+                ?: throw IllegalStateException("Cannot open: $currentUri")
+            val parent = docFile.parentFile
+                ?: throw IllegalStateException("Cannot get parent of: $currentUri")
+            // Remove any existing file with that name (except the current one)
+            parent.findFile(newFilename)
+                ?.takeIf { it.uri.toString() != currentUri }
+                ?.delete()
+            val ok = docFile.renameTo(newFilename)
+            if (!ok) throw IllegalStateException("Failed to rename to $newFilename")
+            parent.findFile(newFilename)?.uri?.toString()
+                ?: throw IllegalStateException("Cannot find renamed file: $newFilename")
+        }
+
     actual fun getDisplayPath(folderUri: String): String {
         return try {
             val uri = Uri.parse(folderUri)

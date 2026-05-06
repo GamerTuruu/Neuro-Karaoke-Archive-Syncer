@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,7 +20,6 @@ import org.koin.compose.viewmodel.koinViewModel
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun BrowserScreen(
-    onNavigateUp: () -> Unit,
     onSongClick: (xxHash: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -30,14 +28,7 @@ fun BrowserScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Song Browser") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateUp) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
-                    }
-                }
-            )
+            TopAppBar(title = { Text("Search") })
         }
     ) { padding ->
         Column(modifier.padding(padding)) {

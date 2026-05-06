@@ -9,21 +9,18 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 private const val GITHUB_API = "https://api.github.com"
-private const val OWNER = "Nyss777"
-private const val REPO = "Neuro-Karaoke-Archive-Metadata"
+const val DEFAULT_GITHUB_OWNER = "Nyss777"
+const val DEFAULT_GITHUB_REPO = "Neuro-Karaoke-Archive-Metadata"
 private const val BRANCH = "main"
 
 class GithubApiSource(private val client: HttpClient) {
 
-    /**
-     * Fetch the complete recursive tree for the metadata repo.
-     * Returns all blob entries whose path ends in ".hjson".
-     *
-     * The blob's `url` field is the GitHub API URL; we convert it to the
-     * raw.githubusercontent.com URL for cheaper plain-text download.
-     */
-    suspend fun fetchHjsonTree(pat: String?): List<RepoTreeEntry> {
-        val response = client.get("$GITHUB_API/repos/$OWNER/$REPO/git/trees/$BRANCH?recursive=1") {
+    suspend fun fetchHjsonTree(
+        pat: String?,
+        repoOwner: String = DEFAULT_GITHUB_OWNER,
+        repoName: String = DEFAULT_GITHUB_REPO,
+    ): List<RepoTreeEntry> {
+        val response = client.get("$GITHUB_API/repos/$repoOwner/$repoName/git/trees/$BRANCH?recursive=1") {
             pat?.let { header(HttpHeaders.Authorization, "Bearer $it") }
             header(HttpHeaders.Accept, "application/vnd.github.v3+json")
             header("X-GitHub-Api-Version", "2022-11-28")
@@ -35,7 +32,7 @@ class GithubApiSource(private val client: HttpClient) {
                 RepoTreeEntry(
                     path = entry.path,
                     sha = entry.sha,
-                    downloadUrl = "https://raw.githubusercontent.com/$OWNER/$REPO/$BRANCH/${entry.path}",
+                    downloadUrl = "https://raw.githubusercontent.com/$repoOwner/$repoName/$BRANCH/${entry.path}",
                     size = entry.size ?: 0L,
                 )
             }

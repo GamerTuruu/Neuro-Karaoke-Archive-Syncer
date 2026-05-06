@@ -91,4 +91,7 @@ object SettingsKeys {
     const val DRIVE_API_KEY = "drive_api_key"
     const val GITHUB_PAT = "github_pat"
     const val LAST_SYNC_TIME_MS = "last_sync_time_ms"
+    // Advanced / overridable
+    const val DRIVE_FOLDER_ID = "drive_folder_id"   // default: archive folder
+    const val GITHUB_REPO = "github_repo"           // format: "owner/repo"
 }

@@ -1,41 +1,33 @@
 package com.neurok.syncer.ui.home
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neurok.syncer.domain.model.SyncProgress
+import com.neurok.syncer.ui.components.ConfirmDialog
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(
-    onNavigateToBrowser: () -> Unit,
-    onNavigateToSettings: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
+fun HomeScreen(modifier: Modifier = Modifier) {
     val vm = koinViewModel<HomeViewModel>()
     val state by vm.state.collectAsState()
 
+    if (state.showSyncConfirm) {
+        ConfirmDialog(
+            title = "Start Sync",
+            message = "This will scan your local folder, fetch metadata from GitHub, and apply tags to any songs that changed. Continue?",
+            confirmLabel = "Sync Now",
+            onConfirm = { vm.sync() },
+            onDismiss = { vm.dismissSyncConfirm() },
+        )
+    }
+
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Neuro Karaoke Archive") },
-                actions = {
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            imageVector = Icons.Filled.Settings,
-                            contentDescription = "Settings"
-                        )
-                    }
-                }
-            )
-        }
+        topBar = { TopAppBar(title = { Text("Sync") }) }
     ) { padding ->
         Column(
             modifier = modifier
@@ -47,22 +39,18 @@ fun HomeScreen(
             if (!state.folderConfigured) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                     Text(
-                        "No archive folder configured. Go to Settings to choose a folder.",
+                        "No archive folder configured.\nGo to More → Settings to choose a folder.",
                         modifier = Modifier.padding(16.dp),
                         color = MaterialTheme.colorScheme.onErrorContainer,
                     )
                 }
             }
 
-            // Last sync
             Text(
-                text = if (state.lastSyncTime > 0L)
-                    "Last synced: ${formatTime(state.lastSyncTime)}"
-                else "Never synced",
+                text = if (state.lastSyncTime > 0L) "Last synced: ${formatTime(state.lastSyncTime)}" else "Never synced",
                 style = MaterialTheme.typography.bodyMedium,
             )
 
-            // Status counts
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatusChip("✓ ${state.counts.upToDate}", color = MaterialTheme.colorScheme.primary)
                 StatusChip("↑ ${state.counts.needsUpdate}", color = MaterialTheme.colorScheme.secondary)
@@ -73,15 +61,10 @@ fun HomeScreen(
                 StatusChip("✗ ${state.counts.excluded}", color = MaterialTheme.colorScheme.outline)
             }
 
-            // Storage
-            Text(
-                "Storage: ${formatBytes(state.storageBytes)}",
-                style = MaterialTheme.typography.bodySmall,
-            )
+            Text("Storage: ${formatBytes(state.storageBytes)}", style = MaterialTheme.typography.bodySmall)
 
-            // Sync button
             Button(
-                onClick = { vm.sync() },
+                onClick = { vm.requestSync() },
                 enabled = !state.isSyncing && state.folderConfigured,
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -92,7 +75,6 @@ fun HomeScreen(
                 Text(if (state.isSyncing) "Syncing…" else "Sync Now")
             }
 
-            // Progress message
             state.syncProgress?.let { progress ->
                 when (progress) {
                     is SyncProgress.ScanningLocal ->
@@ -100,23 +82,12 @@ fun HomeScreen(
                             progress = { if (progress.total > 0) progress.current.toFloat() / progress.total else 0f },
                             modifier = Modifier.fillMaxWidth(),
                         )
-                    is SyncProgress.FetchingMetadata ->
-                        Text(progress.message, style = MaterialTheme.typography.bodySmall)
-                    is SyncProgress.Completed ->
-                        Text("Done: ${progress.updated} updated, ${progress.newAvailable} new",
-                            style = MaterialTheme.typography.bodySmall)
-                    is SyncProgress.Error ->
-                        Text("Error: ${progress.message}",
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodySmall)
+                    is SyncProgress.FetchingMetadata -> Text(progress.message, style = MaterialTheme.typography.bodySmall)
+                    is SyncProgress.ApplyingTags -> Text("Applying tags (${progress.current}/${progress.total}): ${progress.songTitle}", style = MaterialTheme.typography.bodySmall)
+                    is SyncProgress.Completed -> Text("Done: ${progress.updated} updated, ${progress.newAvailable} new available", style = MaterialTheme.typography.bodySmall)
+                    is SyncProgress.Error -> Text("Error: ${progress.message}", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                     else -> Unit
                 }
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            OutlinedButton(onClick = onNavigateToBrowser, modifier = Modifier.fillMaxWidth()) {
-                Text("Browse Songs")
             }
         }
     }
@@ -124,26 +95,15 @@ fun HomeScreen(
 
 @Composable
 private fun StatusChip(label: String, color: androidx.compose.ui.graphics.Color) {
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = color.copy(alpha = 0.15f),
-        modifier = Modifier,
-    ) {
-        Text(
-            label,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            color = color,
-            fontWeight = FontWeight.Medium,
-            style = MaterialTheme.typography.labelMedium,
-        )
+    Surface(shape = MaterialTheme.shapes.small, color = color.copy(alpha = 0.15f)) {
+        Text(label, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            color = color, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium)
     }
 }
 
 private fun formatTime(ms: Long): String {
-    val totalSecs = ms / 1000
     val mins = (ms / 60000) % 60
     val hours = (ms / 3600000) % 24
-    // Simple epoch-based date string (UTC)
     val days = ms / 86400000L
     val year = 1970 + (days / 365).toInt()
     val dayOfYear = (days % 365).toInt()

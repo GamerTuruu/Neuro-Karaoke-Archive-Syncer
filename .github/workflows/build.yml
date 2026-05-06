@@ -2,11 +2,12 @@ name: Build & Release APK
 
 on:
   push:
+    branches: [ main ]    # pre-release on every push to main
     tags:
-      - 'v*'          # triggers on v1.0.0, v1.2.3, etc.
+      - 'v*'              # full release on version tags (v1.0.0, etc.)
   pull_request:
     branches: [ main ]
-  workflow_dispatch:   # allows manual runs from the Actions tab
+  workflow_dispatch:       # allows manual runs from the Actions tab
 
 jobs:
   build:
@@ -30,8 +31,8 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x ./gradlew
 
-      - name: Build debug APK (PRs)
-        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+      - name: Build debug APK (main push / PRs / manual)
+        if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: ./gradlew :composeApp:assembleDebug --no-daemon
 
       - name: Build release APK (tags)
@@ -50,6 +51,20 @@ jobs:
           name: debug-apk
           path: composeApp/build/outputs/apk/debug/*.apk
           retention-days: 14
+
+      # On every push to main, update the rolling "latest" pre-release
+      - name: Publish latest pre-release (main branch)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: ncipollo/release-action@v1
+        with:
+          tag: latest
+          name: "Latest Debug Build"
+          body: "Automatically updated on every push to `main`. This is a debug build — not a stable release."
+          prerelease: true
+          allowUpdates: true
+          removeArtifacts: true
+          artifacts: "composeApp/build/outputs/apk/debug/*.apk"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release and upload APK
         if: startsWith(github.ref, 'refs/tags/')

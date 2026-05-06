@@ -21,6 +21,7 @@ data class HomeUiState(
     val syncProgress: SyncProgress? = null,
     val isSyncing: Boolean = false,
     val folderConfigured: Boolean = false,
+    val showSyncConfirm: Boolean = false,
 )
 
 class HomeViewModel(
@@ -37,7 +38,15 @@ class HomeViewModel(
         viewModelScope.launch { refresh() }
     }
 
+    fun requestSync() {
+        if (_state.value.isSyncing) return
+        _state.update { it.copy(showSyncConfirm = true) }
+    }
+
+    fun dismissSyncConfirm() = _state.update { it.copy(showSyncConfirm = false) }
+
     fun sync() {
+        _state.update { it.copy(showSyncConfirm = false) }
         if (_state.value.isSyncing) return
         viewModelScope.launch {
             _state.update { it.copy(isSyncing = true) }

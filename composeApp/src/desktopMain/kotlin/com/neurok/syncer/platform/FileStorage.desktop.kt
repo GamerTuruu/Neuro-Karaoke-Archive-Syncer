@@ -33,5 +33,14 @@ actual class FileStorage {
             dest.absolutePath
         }
 
+    actual suspend fun renameFile(currentUri: String, newFilename: String): String =
+        withContext(Dispatchers.IO) {
+            val file = File(currentUri)
+            val target = File(file.parentFile, newFilename)
+            if (target.exists()) target.delete()
+            if (!file.renameTo(target)) throw IllegalStateException("Failed to rename to $newFilename")
+            target.absolutePath
+        }
+
     actual fun getDisplayPath(folderUri: String): String = folderUri
 }

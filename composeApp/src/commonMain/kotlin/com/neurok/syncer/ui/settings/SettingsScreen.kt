@@ -1,28 +1,41 @@
 package com.neurok.syncer.ui.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import com.neurok.syncer.domain.model.TagPresetRegistry
+import com.neurok.syncer.ui.components.ConfirmDialog
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onNavigateUp: () -> Unit,
-    onPickFolder: () -> Unit,
+    onPickFolder: (callback: (String) -> Unit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val vm = koinViewModel<SettingsViewModel>()
     val state by vm.state.collectAsState()
+    val uriHandler = LocalUriHandler.current
+    var showApiHelp by remember { mutableStateOf(false) }
 
+    // Intercept back press to warn about unsaved changes
+    BackHandler(enabled = state.hasUnsavedChanges) {
+        vm.requestExit()
+    }
+
+    // Auto-dismiss snackbar
     state.saveMessage?.let { msg ->
         LaunchedEffect(msg) {
             kotlinx.coroutines.delay(2000)
@@ -30,13 +43,88 @@ fun SettingsScreen(
         }
     }
 
+    // --- Dialogs ---
+    if (state.showExitConfirm) {
+        ConfirmDialog(
+            title = "Unsaved Changes",
+            message = "You have unsaved changes. Discard them and leave?",
+            confirmLabel = "Discard",
+            isDestructive = true,
+            onConfirm = { vm.discardAndExit(onNavigateUp) },
+            onDismiss = { vm.dismissExitConfirm() },
+        )
+    }
+    if (state.showAdvancedWarning) {
+        ConfirmDialog(
+            title = "Advanced Settings",
+            message = "These settings override the default Drive folder and GitHub repo. Incorrect values will break sync. Proceed?",
+            confirmLabel = "I understand",
+            onConfirm = { vm.confirmExpandAdvanced() },
+            onDismiss = { vm.dismissAdvancedWarning() },
+        )
+    }
+    if (state.showResetConfirm) {
+        ConfirmDialog(
+            title = "Reset Advanced Settings",
+            message = "Reset Drive Folder ID and GitHub Repo to their defaults?",
+            confirmLabel = "Reset",
+            isDestructive = true,
+            onConfirm = { vm.confirmReset() },
+            onDismiss = { vm.dismissResetConfirm() },
+        )
+    }
+    if (state.showClearCacheConfirm) {
+        ConfirmDialog(
+            title = "Clear Drive Cache",
+            message = "This will clear the cached Drive file index. The next sync will re-fetch all file IDs from Google Drive.",
+            confirmLabel = "Clear",
+            onConfirm = { vm.confirmClearCache() },
+            onDismiss = { vm.dismissClearCacheConfirm() },
+        )
+    }
+    if (showApiHelp) {
+        AlertDialog(
+            onDismissRequest = { showApiHelp = false },
+            title = { Text("Getting a Google Drive API Key") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("1. Open Google Cloud Console")
+                    Text("2. Create or select a project")
+                    Text("3. Go to APIs & Services → Library")
+                    Text("4. Search for and enable \"Google Drive API\"")
+                    Text("5. Go to APIs & Services → Credentials")
+                    Text("6. Click \"Create Credentials\" → API key")
+                    Text("7. Copy the key (starts with \"AIzaSy...\")")
+                    Text("Restrict the key to the Drive API for security.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { uriHandler.openUri("https://console.cloud.google.com/apis/credentials") }) {
+                    Text("Open Console")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showApiHelp = false }) { Text("Close") }
+            },
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateUp) {
+                    IconButton(onClick = {
+                        if (state.hasUnsavedChanges) vm.requestExit() else onNavigateUp()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back")
+                    }
+                },
+                actions = {
+                    if (state.hasUnsavedChanges) {
+                        TextButton(onClick = vm::save) { Text("Save") }
                     }
                 }
             )
@@ -54,79 +142,127 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Folder
+            // ── Archive Folder ──────────────────────────────────────────────
             SectionTitle("Archive Folder")
             OutlinedTextField(
                 value = state.folderUri,
-                onValueChange = vm::setFolderUri,
+                onValueChange = {},
                 label = { Text("Folder URI") },
                 modifier = Modifier.fillMaxWidth(),
                 readOnly = true,
                 trailingIcon = {
-                    TextButton(onClick = onPickFolder) { Text("Choose") }
+                    TextButton(onClick = { onPickFolder { uri -> vm.setFolderUri(uri) } }) {
+                        Text("Choose")
+                    }
                 }
             )
 
-            // Sync schedule
-            SectionTitle("Sync Schedule")
-            val scheduleOptions = listOf(0 to "Off", 12 to "Every 12 hours", 24 to "Daily", 168 to "Weekly")
-            scheduleOptions.forEach { (hours, label) ->
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = state.syncScheduleHours == hours,
-                        onClick = { vm.setSyncSchedule(hours) },
-                    )
-                    Text(label)
+            // ── Sync Schedule ───────────────────────────────────────────────
+            SectionTitle("Background Sync Schedule")
+            listOf(0 to "Off", 12 to "Every 12 hours", 24 to "Daily", 168 to "Weekly").forEach { (hours, label) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    RadioButton(selected = state.syncScheduleHours == hours, onClick = { vm.setSyncSchedule(hours) })
+                    Text(label, modifier = Modifier.padding(start = 4.dp))
                 }
             }
 
-            // Preset
-            SectionTitle("Tag Preset")
-            TagPresetRegistry.all.forEach { preset ->
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    RadioButton(
-                        selected = state.activePresetId == preset.id,
-                        onClick = { vm.setPresetId(preset.id) },
-                    )
-                    Text(preset.displayName)
-                }
-            }
-
-            // Drive API key
+            // ── Google Drive API Key ────────────────────────────────────────
             SectionTitle("Google Drive API Key")
-            OutlinedTextField(
-                value = state.driveApiKey,
-                onValueChange = vm::setDriveApiKey,
-                label = { Text("API Key") },
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
-                singleLine = true,
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                OutlinedTextField(
+                    value = state.driveApiKey,
+                    onValueChange = vm::setDriveApiKey,
+                    label = { Text("API Key") },
+                    modifier = Modifier.weight(1f),
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    placeholder = { Text("AIzaSy...") },
+                )
+                IconButton(onClick = { showApiHelp = true }) {
+                    Icon(Icons.Filled.HelpOutline, "How to get API key", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+            Text(
+                "Required for downloading songs from Google Drive.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            // GitHub PAT
-            SectionTitle("GitHub Personal Access Token (optional)")
+            // ── GitHub PAT ──────────────────────────────────────────────────
+            SectionTitle("GitHub Token (optional)")
             OutlinedTextField(
                 value = state.githubPat,
                 onValueChange = vm::setGithubPat,
-                label = { Text("PAT (higher rate limit)") },
+                label = { Text("Personal Access Token") },
                 modifier = Modifier.fillMaxWidth(),
                 visualTransformation = PasswordVisualTransformation(),
                 singleLine = true,
+                placeholder = { Text("ghp_...") },
+            )
+            Text(
+                "Increases GitHub API rate limit from 60 to 5000 requests/hour.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            // Actions
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = vm::save, modifier = Modifier.weight(1f)) {
-                    Text("Save")
-                }
-                OutlinedButton(
-                    onClick = vm::clearDriveCache,
-                    modifier = Modifier.weight(1f),
-                    enabled = !state.isClearingCache,
+            // ── Actions ─────────────────────────────────────────────────────
+            Button(onClick = vm::save, modifier = Modifier.fillMaxWidth()) { Text("Save Settings") }
+            OutlinedButton(
+                onClick = vm::requestClearCache,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !state.isClearingCache,
+            ) { Text("Clear Drive Cache") }
+
+            // ── Advanced ────────────────────────────────────────────────────
+            HorizontalDivider()
+
+            if (!state.showAdvancedSection) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
-                    Text("Clear Drive Cache")
+                    Column(Modifier.weight(1f)) {
+                        Text("Advanced", style = MaterialTheme.typography.titleSmall)
+                        Text("Override Drive folder and metadata repo",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    TextButton(onClick = vm::requestExpandAdvanced) { Text("Show") }
                 }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Filled.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                    Text("Advanced — change only if you know what you're doing",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.error)
+                }
+                OutlinedTextField(
+                    value = state.driveFolderId,
+                    onValueChange = vm::setDriveFolderId,
+                    label = { Text("Drive Folder ID") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("1B1VaWp-mCKk15_7XpFnImsTdBJPOGx7a (default)") },
+                    supportingText = { Text("Google Drive folder ID for the archive. Leave blank for default.") },
+                )
+                OutlinedTextField(
+                    value = state.githubRepo,
+                    onValueChange = vm::setGithubRepo,
+                    label = { Text("GitHub Metadata Repo") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("Nyss777/Neuro-Karaoke-Archive-Metadata (default)") },
+                    supportingText = { Text("Format: owner/repo — the source of HJSON metadata files.") },
+                )
+                OutlinedButton(
+                    onClick = vm::requestReset,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text("Reset to Defaults") }
             }
+
+            Spacer(Modifier.height(8.dp))
         }
     }
 }

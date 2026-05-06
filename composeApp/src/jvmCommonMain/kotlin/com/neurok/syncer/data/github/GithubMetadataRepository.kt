@@ -1,52 +1,56 @@
 package com.neurok.syncer.data.github
 
-import com.neurok.syncer.domain.model.SongMetadata
+import com.neurok.syncer.data.github.DEFAULT_GITHUB_OWNER
+import com.neurok.syncer.data.github.DEFAULT_GITHUB_REPO
+import com.neurok.syncer.domain.model.SettingsKeys
 import com.neurok.syncer.domain.model.SyncStatus
 import com.neurok.syncer.domain.repository.MetadataRepository
+import com.neurok.syncer.domain.repository.SettingsRepository
 import com.neurok.syncer.domain.repository.SongRepository
 import com.neurok.syncer.hjson.HjsonParser
 
 class GithubMetadataRepository(
     private val apiSource: GithubApiSource,
     private val songRepository: SongRepository,
+    private val settingsRepository: SettingsRepository,
 ) : MetadataRepository {
 
     override suspend fun syncFromGitHub(pat: String?): Int {
-        val treeEntries = apiSource.fetchHjsonTree(pat)
+        val repoStr = settingsRepository.get(SettingsKeys.GITHUB_REPO) ?: "$DEFAULT_GITHUB_OWNER/$DEFAULT_GITHUB_REPO"
+        val parts = repoStr.split("/", limit = 2)
+        val owner = if (parts.size == 2) parts[0] else DEFAULT_GITHUB_OWNER
+        val repo  = if (parts.size == 2) parts[1] else DEFAULT_GITHUB_REPO
 
-        // Build a map of all hjsonPaths we already know -> their current sha in DB
+        val treeEntries = apiSource.fetchHjsonTree(pat, owner, repo)
+
         val existingBySha: Map<String, String> = songRepository.getAll()
             .associate { it.hjsonPath to it.hjsonSha }
 
         var processed = 0
         for (entry in treeEntries) {
             val currentSha = existingBySha[entry.path]
-            if (currentSha == entry.sha) continue // Nothing changed for this file
+            if (currentSha == entry.sha) continue
 
             val text = apiSource.fetchHjsonContent(entry.downloadUrl, pat)
             val meta = try {
                 HjsonParser.parse(text, entry.path, entry.sha)
             } catch (e: Exception) {
-                continue // Skip malformed files; don't crash the full sync
+                continue
             }
 
             val existing = songRepository.getByXxHash(meta.xxHash)
             if (existing == null) {
-                // Brand new song — not yet in DB
                 songRepository.upsert(meta, SyncStatus.NEW_AVAILABLE)
             } else {
-                // Metadata changed for an existing song
-                val isExcluded = existing.hjsonSha == "EXCLUDED" // checked via DB row
                 songRepository.upsert(
                     song = meta,
-                    syncStatus = if (existing.special) SyncStatus.NEEDS_UPDATE else SyncStatus.NEEDS_UPDATE,
+                    syncStatus = SyncStatus.NEEDS_UPDATE,
                     localFileUri = null,
                 )
             }
             processed++
         }
 
-        // Mark anything in DB that no longer appears in the tree as ORPHAN (local-only)
         val remotePaths = treeEntries.map { it.path }.toSet()
         songRepository.getAll()
             .filter { it.hjsonPath !in remotePaths && it.hjsonPath.isNotBlank() }

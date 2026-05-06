@@ -24,6 +24,9 @@ expect class FileStorage {
     /** Write bytes to new file inside folderUri. Returns the URI of the created file. */
     suspend fun writeFile(folderUri: String, filename: String, bytes: ByteArray): String
 
+    /** Rename a file. Returns the new URI/path after rename. */
+    suspend fun renameFile(currentUri: String, newFilename: String): String
+
     /** Returns the display path for a folder URI (shown in Settings). */
     fun getDisplayPath(folderUri: String): String
 }
