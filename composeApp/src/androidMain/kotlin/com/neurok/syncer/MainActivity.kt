@@ -7,6 +7,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.work.*
 import com.neurok.syncer.domain.model.SettingsKeys
 import com.neurok.syncer.domain.repository.SettingsRepository
@@ -42,7 +43,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            MaterialTheme {
+            MaterialTheme(colorScheme = darkColorScheme()) {
                 AppNavigation(
                     onPickFolderFromActivity = { callback ->
                         pendingFolderCallback = callback

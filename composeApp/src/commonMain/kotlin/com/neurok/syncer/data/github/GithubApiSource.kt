@@ -4,8 +4,8 @@ import com.neurok.syncer.domain.model.RepoTreeEntry
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 private const val GITHUB_API = "https://api.github.com"
@@ -24,6 +24,10 @@ class GithubApiSource(private val client: HttpClient) {
             pat?.let { header(HttpHeaders.Authorization, "Bearer $it") }
             header(HttpHeaders.Accept, "application/vnd.github.v3+json")
             header("X-GitHub-Api-Version", "2022-11-28")
+        }
+        if (!response.status.isSuccess()) {
+            val body = response.bodyAsText()
+            throw Exception("GitHub API error ${response.status.value}: $body")
         }
         val tree = response.body<GitTreeResponse>()
         return tree.tree
@@ -50,8 +54,8 @@ class GithubApiSource(private val client: HttpClient) {
 
 @Serializable
 private data class GitTreeResponse(
-    val sha: String,
-    val tree: List<GitTreeEntry>,
+    val sha: String = "",
+    val tree: List<GitTreeEntry> = emptyList(),
     val truncated: Boolean = false,
 )
 

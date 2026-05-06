@@ -3,6 +3,8 @@ package com.neurok.syncer.ui.settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -12,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -28,7 +31,10 @@ fun SettingsScreen(
     val vm = koinViewModel<SettingsViewModel>()
     val state by vm.state.collectAsState()
     val uriHandler = LocalUriHandler.current
+    val focusManager = LocalFocusManager.current
+    val noRipple = remember { MutableInteractionSource() }
     var showApiHelp by remember { mutableStateOf(false) }
+    var showPatHelp by remember { mutableStateOf(false) }
 
     // Intercept back press to warn about unsaved changes
     BackHandler(enabled = state.hasUnsavedChanges) {
@@ -80,6 +86,34 @@ fun SettingsScreen(
             confirmLabel = "Clear",
             onConfirm = { vm.confirmClearCache() },
             onDismiss = { vm.dismissClearCacheConfirm() },
+        )
+    }
+    if (showPatHelp) {
+        AlertDialog(
+            onDismissRequest = { showPatHelp = false },
+            title = { Text("Getting a GitHub Token") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("A token is optional but raises the API rate limit from 60 to 5,000 requests/hour.")
+                    Text("1. Go to github.com → Settings")
+                    Text("2. Developer settings → Personal access tokens → Tokens (classic)")
+                    Text("3. Click \"Generate new token (classic)\"")
+                    Text("4. Give it a name, set expiry")
+                    Text("5. Under Scopes: only tick \"public_repo\" (read-only is enough)")
+                    Text("6. Click Generate token and copy it")
+                    Text("The token starts with \"ghp_\".",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { uriHandler.openUri("https://github.com/settings/tokens/new") }) {
+                    Text("Open GitHub")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPatHelp = false }) { Text("Close") }
+            },
         )
     }
     if (showApiHelp) {
@@ -139,7 +173,8 @@ fun SettingsScreen(
             modifier
                 .padding(padding)
                 .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .clickable(interactionSource = noRipple, indication = null) { focusManager.clearFocus() },
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             // ── Archive Folder ──────────────────────────────────────────────
@@ -160,7 +195,13 @@ fun SettingsScreen(
             // ── Sync Schedule ───────────────────────────────────────────────
             SectionTitle("Background Sync Schedule")
             listOf(0 to "Off", 12 to "Every 12 hours", 24 to "Daily", 168 to "Weekly").forEach { (hours, label) ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { focusManager.clearFocus(); vm.setSyncSchedule(hours) }
+                        .padding(vertical = 2.dp),
+                ) {
                     RadioButton(selected = state.syncScheduleHours == hours, onClick = { vm.setSyncSchedule(hours) })
                     Text(label, modifier = Modifier.padding(start = 4.dp))
                 }
@@ -190,17 +231,22 @@ fun SettingsScreen(
 
             // ── GitHub PAT ──────────────────────────────────────────────────
             SectionTitle("GitHub Token (optional)")
-            OutlinedTextField(
-                value = state.githubPat,
-                onValueChange = vm::setGithubPat,
-                label = { Text("Personal Access Token") },
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
-                singleLine = true,
-                placeholder = { Text("ghp_...") },
-            )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                OutlinedTextField(
+                    value = state.githubPat,
+                    onValueChange = vm::setGithubPat,
+                    label = { Text("Personal Access Token") },
+                    modifier = Modifier.weight(1f),
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    placeholder = { Text("ghp_...") },
+                )
+                IconButton(onClick = { showPatHelp = true }) {
+                    Icon(Icons.Filled.HelpOutline, "How to get token", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
             Text(
-                "Increases GitHub API rate limit from 60 to 5000 requests/hour.",
+                "Increases GitHub API rate limit from 60 to 5,000 requests/hour.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
