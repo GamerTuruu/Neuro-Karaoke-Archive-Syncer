@@ -12,6 +12,8 @@ interface SongRepository {
     suspend fun upsert(song: SongMetadata, syncStatus: SyncStatus, localFileUri: String? = null)
     suspend fun updateStatus(xxHash: String, status: SyncStatus)
     suspend fun updateLocalUri(xxHash: String, localFileUri: String, status: SyncStatus)
+    /** Update only the local file path without changing the sync status. */
+    suspend fun updateLocalUriOnly(xxHash: String, localFileUri: String)
     suspend fun updateExcluded(xxHash: String, excluded: Boolean)
     suspend fun updateHjsonSha(xxHash: String, sha: String, newStatus: SyncStatus)
     suspend fun getStatusCounts(): StatusCounts

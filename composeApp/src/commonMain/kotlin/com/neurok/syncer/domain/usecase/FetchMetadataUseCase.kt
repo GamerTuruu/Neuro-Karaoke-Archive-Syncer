@@ -38,21 +38,7 @@ class FetchMetadataUseCase(
         val folderUri = settingsRepository.get(SettingsKeys.LOCAL_FOLDER_URI)
         val pat = settingsRepository.get(SettingsKeys.GITHUB_PAT)
 
-        // Step 1: Scan local files and update DB URIs
-        if (!folderUri.isNullOrBlank()) {
-            val files = fileStorage.listMp3s(folderUri)
-            files.forEachIndexed { idx, uri ->
-                emit(SyncProgress.ScanningLocal(idx + 1, files.size))
-                val commVed = tagHandler.readCommVed(uri) ?: return@forEachIndexed
-                val xxHash = extractXxHash(commVed) ?: return@forEachIndexed
-                val existing = songRepository.getByXxHash(xxHash)
-                if (existing != null) {
-                    songRepository.updateLocalUri(xxHash, uri, SyncStatus.UP_TO_DATE)
-                }
-            }
-        }
-
-        // Step 2: Sync GitHub metadata (detects new / changed HJSON blobs)
+        // Step 1: Fetch GitHub metadata first — this populates the DB so the scan can match
         emit(SyncProgress.FetchingMetadata("Fetching metadata from GitHub…"))
         val metaChanged = try {
             metadataRepository.syncFromGitHub(pat)
@@ -60,7 +46,27 @@ class FetchMetadataUseCase(
             emit(SyncProgress.Error("Metadata fetch failed: ${e.message}"))
             return@flow
         }
-        emit(SyncProgress.FetchingMetadata("Done — $metaChanged file(s) changed"))
+        emit(SyncProgress.FetchingMetadata("GitHub: $metaChanged entry(ies) changed"))
+
+        // Step 2: Scan local files and match to DB by xxHash
+        if (!folderUri.isNullOrBlank()) {
+            val files = fileStorage.listMp3s(folderUri)
+            files.forEachIndexed { idx, uri ->
+                emit(SyncProgress.ScanningLocal(idx + 1, files.size))
+                val commVed = tagHandler.readCommVed(uri) ?: return@forEachIndexed
+                val xxHash = extractXxHash(commVed) ?: return@forEachIndexed
+
+                val existingLocalUri = songRepository.getLocalUri(xxHash)
+                if (existingLocalUri == null) {
+                    // Song found locally for the first time (was NEW_AVAILABLE).
+                    // Set NEEDS_UPDATE so Sync will apply tags on it.
+                    songRepository.updateLocalUri(xxHash, uri, SyncStatus.NEEDS_UPDATE)
+                } else {
+                    // Song already tracked — just keep the URI current (don't change status).
+                    songRepository.updateLocalUriOnly(xxHash, uri)
+                }
+            }
+        }
 
         settingsRepository.set(SettingsKeys.LAST_SYNC_TIME_MS, System.currentTimeMillis().toString())
 

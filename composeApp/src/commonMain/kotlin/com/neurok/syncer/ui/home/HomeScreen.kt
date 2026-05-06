@@ -199,10 +199,16 @@ private fun ProgressSection(progress: SyncProgress, label: String) {
             Text(
                 buildString {
                     append("$label complete!")
-                    if (progress.updated > 0) append(" ${progress.updated} tag(s) applied.")
-                    if (progress.downloaded > 0) append(" ${progress.downloaded} song(s) downloaded.")
-                    if (progress.newAvailable > 0) append(" ${progress.newAvailable} still awaiting download.")
-                    if (progress.updated == 0 && progress.downloaded == 0) append(" Everything is up to date.")
+                    if (label == "Fetch") {
+                        if (progress.updated > 0) append(" ${progress.updated} metadata entry(ies) changed.")
+                        else append(" Metadata is already up to date.")
+                        if (progress.newAvailable > 0) append(" ${progress.newAvailable} song(s) ready to download.")
+                    } else {
+                        if (progress.updated > 0) append(" ${progress.updated} tag(s) applied.")
+                        if (progress.downloaded > 0) append(" ${progress.downloaded} song(s) downloaded.")
+                        if (progress.newAvailable > 0) append(" ${progress.newAvailable} still awaiting download.")
+                        if (progress.updated == 0 && progress.downloaded == 0) append(" Nothing to do.")
+                    }
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary,

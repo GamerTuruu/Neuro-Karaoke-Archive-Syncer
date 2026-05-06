@@ -12,15 +12,33 @@ actual class FileStorage(private val context: Context) {
     actual suspend fun listMp3s(folderUri: String): List<String> = withContext(Dispatchers.IO) {
         val treeUri = Uri.parse(folderUri)
         val root = DocumentFile.fromTreeUri(context, treeUri) ?: return@withContext emptyList()
-        root.listFiles()
-            .filter { it.isFile && it.name?.endsWith(".mp3", ignoreCase = true) == true }
-            .map { it.uri.toString() }
+        val result = mutableListOf<String>()
+        collectMp3sRecursive(root, result)
+        result
+    }
+
+    private fun collectMp3sRecursive(dir: DocumentFile, result: MutableList<String>) {
+        for (child in dir.listFiles()) {
+            when {
+                child.isDirectory -> collectMp3sRecursive(child, result)
+                child.isFile && child.name?.endsWith(".mp3", ignoreCase = true) == true ->
+                    result.add(child.uri.toString())
+            }
+        }
     }
 
     actual suspend fun getFolderSize(folderUri: String): Long = withContext(Dispatchers.IO) {
         val treeUri = Uri.parse(folderUri)
         val root = DocumentFile.fromTreeUri(context, treeUri) ?: return@withContext 0L
-        root.listFiles().filter { it.isFile }.sumOf { it.length() }
+        sumSizeRecursive(root)
+    }
+
+    private fun sumSizeRecursive(dir: DocumentFile): Long {
+        var total = 0L
+        for (child in dir.listFiles()) {
+            total += if (child.isDirectory) sumSizeRecursive(child) else child.length()
+        }
+        return total
     }
 
     actual suspend fun fileExists(uri: String): Boolean = withContext(Dispatchers.IO) {

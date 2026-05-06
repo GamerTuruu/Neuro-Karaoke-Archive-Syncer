@@ -66,6 +66,11 @@ class SongRepositoryImpl(private val db: NKSyncerDatabase) : SongRepository {
             queries.updateLocalUri(localFileUri, status.name, xxHash)
         }
 
+    override suspend fun updateLocalUriOnly(xxHash: String, localFileUri: String) =
+        withContext(Dispatchers.IO) {
+            queries.updateLocalUriOnly(localFileUri, xxHash)
+        }
+
     override suspend fun updateExcluded(xxHash: String, excluded: Boolean) = withContext(Dispatchers.IO) {
         queries.updateExcluded(if (excluded) 1L else 0L, xxHash)
     }

@@ -40,12 +40,17 @@ class GithubMetadataRepository(
 
             val existing = songRepository.getByXxHash(meta.xxHash)
             if (existing == null) {
+                // Completely new song — no local file yet
                 songRepository.upsert(meta, SyncStatus.NEW_AVAILABLE)
             } else {
+                // Sha changed. Keep NEW_AVAILABLE if there's no local file;
+                // set NEEDS_UPDATE if a local file exists (tags need to be re-applied).
+                val localUri = songRepository.getLocalUri(meta.xxHash)
+                val newStatus = if (localUri != null) SyncStatus.NEEDS_UPDATE else SyncStatus.NEW_AVAILABLE
                 songRepository.upsert(
                     song = meta,
-                    syncStatus = SyncStatus.NEEDS_UPDATE,
-                    localFileUri = null,
+                    syncStatus = newStatus,
+                    localFileUri = null, // preserved by upsert from existing row
                 )
             }
             processed++

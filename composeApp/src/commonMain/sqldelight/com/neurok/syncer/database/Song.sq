@@ -50,6 +50,9 @@ UPDATE Song SET syncStatus = ? WHERE xxHash = ?;
 updateLocalUri:
 UPDATE Song SET localFileUri = ?, syncStatus = ? WHERE xxHash = ?;
 
+updateLocalUriOnly:
+UPDATE Song SET localFileUri = ? WHERE xxHash = ?;
+
 updateExcluded:
 UPDATE Song SET isExcluded = ? WHERE xxHash = ?;
 
