@@ -43,10 +43,27 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             if (!state.folderConfigured) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                     Text(
-                        "No archive folder configured.\nGo to More → Settings to choose a folder.",
+                        "No archive folder configured.\nGo to More → Settings to choose your karaoke folder.",
                         modifier = Modifier.padding(16.dp),
                         color = MaterialTheme.colorScheme.onErrorContainer,
                     )
+                }
+            }
+
+            if (state.folderConfigured && !state.driveApiKeyConfigured && state.counts.newAvailable > 0) {
+                Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            "★ ${state.counts.newAvailable} songs are available to download",
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            "A Google Drive API key is required to download songs. Add one in More → Settings.",
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
                 }
             }
 

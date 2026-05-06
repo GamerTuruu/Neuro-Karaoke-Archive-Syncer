@@ -192,18 +192,35 @@ fun SettingsScreen(
 
             // ── Archive Folder ──────────────────────────────────────────────
             SectionTitle("Archive Folder")
-            OutlinedTextField(
-                value = state.folderUri,
-                onValueChange = {},
-                label = { Text("Folder URI") },
-                modifier = Modifier.fillMaxWidth(),
-                readOnly = true,
-                trailingIcon = {
-                    TextButton(onClick = { onPickFolder { uri -> vm.setFolderUri(uri) } }) {
-                        Text("Choose")
-                    }
-                }
+            Text(
+                "Select the folder on your device that contains (or will contain) your karaoke MP3 files. " +
+                "This is typically the \"Neuro Karaoke Archive V3\" folder you downloaded from Google Drive. " +
+                "The app does not move or copy files — it reads from and writes tags to whatever folder you choose.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = if (state.folderUri.isBlank()) "No folder selected" else state.folderUri
+                        .substringAfterLast("%2F").substringAfterLast("/").ifBlank { state.folderUri },
+                    onValueChange = {},
+                    label = { Text("Selected folder") },
+                    modifier = Modifier.weight(1f),
+                    readOnly = true,
+                    singleLine = true,
+                    isError = state.folderUri.isBlank(),
+                )
+                Button(onClick = { onPickFolder { uri -> vm.setFolderUri(uri) } }) {
+                    Text("Choose")
+                }
+            }
+            if (state.folderUri.isBlank()) {
+                Text(
+                    "⚠ No folder selected. The app cannot sync or play songs until a folder is chosen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
 
             // ── Sync Schedule ───────────────────────────────────────────────
             SectionTitle("Background Sync Schedule")
@@ -222,6 +239,11 @@ fun SettingsScreen(
 
             // ── Google Drive API Key ────────────────────────────────────────
             SectionTitle("Google Drive API Key")
+            Text(
+                "Only needed to download new songs from Google Drive. If you already have all files locally, you can leave this blank.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 OutlinedTextField(
                     value = state.driveApiKey,

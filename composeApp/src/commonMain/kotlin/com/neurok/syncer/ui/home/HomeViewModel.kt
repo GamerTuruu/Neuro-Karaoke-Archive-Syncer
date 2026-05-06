@@ -21,6 +21,7 @@ data class HomeUiState(
     val syncProgress: SyncProgress? = null,
     val isSyncing: Boolean = false,
     val folderConfigured: Boolean = false,
+    val driveApiKeyConfigured: Boolean = false,
     val showSyncConfirm: Boolean = false,
 )
 
@@ -67,6 +68,7 @@ class HomeViewModel(
 
     private suspend fun doRefresh() {
         val folderUri = settingsRepository.get(SettingsKeys.LOCAL_FOLDER_URI)
+        val apiKey = settingsRepository.get(SettingsKeys.DRIVE_API_KEY)
         val lastSync = settingsRepository.getLong(SettingsKeys.LAST_SYNC_TIME_MS, 0L)
         val counts = songRepository.getStatusCounts()
         val storage = if (folderUri != null) fileStorage.getFolderSize(folderUri) else 0L
@@ -76,6 +78,7 @@ class HomeViewModel(
                 counts = counts,
                 storageBytes = storage,
                 folderConfigured = !folderUri.isNullOrBlank(),
+                driveApiKeyConfigured = !apiKey.isNullOrBlank(),
             )
         }
     }
