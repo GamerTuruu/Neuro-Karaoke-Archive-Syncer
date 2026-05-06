@@ -36,7 +36,8 @@ class GithubApiSource(private val client: HttpClient) {
                 RepoTreeEntry(
                     path = entry.path,
                     sha = entry.sha,
-                    downloadUrl = "https://raw.githubusercontent.com/$repoOwner/$repoName/$BRANCH/${entry.path}",
+                    // Encode path so special chars like % ( ) spaces work in raw URLs
+                    downloadUrl = "https://raw.githubusercontent.com/$repoOwner/$repoName/$BRANCH/${entry.path.encodeURLPath()}",
                     size = entry.size ?: 0L,
                 )
             }

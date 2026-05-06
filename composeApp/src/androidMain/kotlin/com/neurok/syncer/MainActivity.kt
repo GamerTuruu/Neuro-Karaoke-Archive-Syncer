@@ -12,8 +12,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import com.neurok.syncer.ui.settings.SettingsViewModel
-import org.koin.compose.viewmodel.koinViewModel
+import com.neurok.syncer.ui.theme.AppTheme
 import androidx.work.*
 import com.neurok.syncer.domain.model.SettingsKeys
 import com.neurok.syncer.domain.repository.SettingsRepository
@@ -49,9 +48,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            val settingsVm = koinViewModel<SettingsViewModel>()
-            val settingsState by settingsVm.state.collectAsState()
-            val colorScheme = when (settingsState.themeMode) {
+            val themeMode by AppTheme.mode.collectAsState()
+            val colorScheme = when (themeMode) {
                 "light" -> lightColorScheme()
                 "system" -> if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
                 else -> darkColorScheme() // "dark" default

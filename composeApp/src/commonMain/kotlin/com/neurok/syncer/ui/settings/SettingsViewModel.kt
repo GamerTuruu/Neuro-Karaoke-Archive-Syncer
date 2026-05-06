@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.neurok.syncer.domain.model.SettingsKeys
 import com.neurok.syncer.domain.repository.DriveRepository
 import com.neurok.syncer.domain.repository.SettingsRepository
+import com.neurok.syncer.ui.theme.AppTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -65,6 +66,7 @@ class SettingsViewModel(
         val ghRepo = settingsRepository.get(SettingsKeys.GITHUB_REPO) ?: ""
         val theme = settingsRepository.get(SettingsKeys.THEME) ?: "dark"
         savedSnapshot = SavedSnapshot(folderUri, schedHours, apiKey, pat, folderId, ghRepo, theme)
+        AppTheme.set(theme)  // apply immediately on load
         _state.update {
             it.copy(
                 folderUri = folderUri,
@@ -144,6 +146,7 @@ class SettingsViewModel(
             settingsRepository.set(SettingsKeys.DRIVE_FOLDER_ID, s.driveFolderId)
             settingsRepository.set(SettingsKeys.GITHUB_REPO, s.githubRepo)
             settingsRepository.set(SettingsKeys.THEME, s.themeMode)
+            AppTheme.set(s.themeMode)  // apply immediately
             savedSnapshot = SavedSnapshot(s.folderUri, s.syncScheduleHours, s.driveApiKey, s.githubPat, s.driveFolderId, s.githubRepo, s.themeMode)
             _state.update { it.copy(hasUnsavedChanges = false, saveMessage = "Saved") }
         }

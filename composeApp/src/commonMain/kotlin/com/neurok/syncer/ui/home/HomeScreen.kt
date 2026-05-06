@@ -3,6 +3,7 @@ package com.neurok.syncer.ui.home
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -55,13 +56,13 @@ fun HomeScreen(modifier: Modifier = Modifier) {
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatusChip("✓ ${state.counts.upToDate}", color = MaterialTheme.colorScheme.primary)
-                StatusChip("↑ ${state.counts.needsUpdate}", color = MaterialTheme.colorScheme.secondary)
-                StatusChip("★ ${state.counts.newAvailable}", color = MaterialTheme.colorScheme.tertiary)
+                StatusChip("✓", state.counts.upToDate, "Up to date", MaterialTheme.colorScheme.primary)
+                StatusChip("↑", state.counts.needsUpdate, "Updates", MaterialTheme.colorScheme.secondary)
+                StatusChip("★", state.counts.newAvailable, "New", MaterialTheme.colorScheme.tertiary)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StatusChip("? ${state.counts.orphans}", color = MaterialTheme.colorScheme.error)
-                StatusChip("✗ ${state.counts.excluded}", color = MaterialTheme.colorScheme.outline)
+                StatusChip("?", state.counts.orphans, "Orphan", MaterialTheme.colorScheme.error)
+                StatusChip("✗", state.counts.excluded, "Excluded", MaterialTheme.colorScheme.outline)
             }
 
             Text("Storage: ${formatBytes(state.storageBytes)}", style = MaterialTheme.typography.bodySmall)
@@ -97,10 +98,23 @@ fun HomeScreen(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun StatusChip(label: String, color: androidx.compose.ui.graphics.Color) {
+private fun StatusChip(icon: String, count: Int, label: String, color: androidx.compose.ui.graphics.Color) {
     Surface(shape = MaterialTheme.shapes.small, color = color.copy(alpha = 0.15f)) {
-        Text(label, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-            color = color, fontWeight = FontWeight.Medium, style = MaterialTheme.typography.labelMedium)
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                "$icon  $count",
+                color = color, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                label,
+                color = color.copy(alpha = 0.75f),
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
     }
 }
 
