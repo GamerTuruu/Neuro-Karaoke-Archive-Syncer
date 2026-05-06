@@ -38,6 +38,11 @@ class HomeViewModel(
         viewModelScope.launch { refresh() }
     }
 
+    /** Call whenever the screen re-enters composition (e.g. returning from Settings). */
+    fun refresh() {
+        viewModelScope.launch { doRefresh() }
+    }
+
     fun requestSync() {
         if (_state.value.isSyncing) return
         _state.update { it.copy(showSyncConfirm = true) }
@@ -60,7 +65,7 @@ class HomeViewModel(
         }
     }
 
-    private suspend fun refresh() {
+    private suspend fun doRefresh() {
         val folderUri = settingsRepository.get(SettingsKeys.LOCAL_FOLDER_URI)
         val lastSync = settingsRepository.getLong(SettingsKeys.LAST_SYNC_TIME_MS, 0L)
         val counts = songRepository.getStatusCounts()
@@ -70,7 +75,7 @@ class HomeViewModel(
                 lastSyncTime = lastSync,
                 counts = counts,
                 storageBytes = storage,
-                folderConfigured = folderUri != null,
+                folderConfigured = !folderUri.isNullOrBlank(),
             )
         }
     }

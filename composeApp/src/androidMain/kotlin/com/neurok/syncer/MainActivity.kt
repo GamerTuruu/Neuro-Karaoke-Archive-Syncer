@@ -8,6 +8,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import com.neurok.syncer.ui.settings.SettingsViewModel
+import org.koin.compose.viewmodel.koinViewModel
 import androidx.work.*
 import com.neurok.syncer.domain.model.SettingsKeys
 import com.neurok.syncer.domain.repository.SettingsRepository
@@ -43,7 +49,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) {
+            val settingsVm = koinViewModel<SettingsViewModel>()
+            val settingsState by settingsVm.state.collectAsState()
+            val colorScheme = when (settingsState.themeMode) {
+                "light" -> lightColorScheme()
+                "system" -> if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
+                else -> darkColorScheme() // "dark" default
+            }
+            MaterialTheme(colorScheme = colorScheme) {
                 AppNavigation(
                     onPickFolderFromActivity = { callback ->
                         pendingFolderCallback = callback

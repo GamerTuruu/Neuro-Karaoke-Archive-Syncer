@@ -177,6 +177,19 @@ fun SettingsScreen(
                 .clickable(interactionSource = noRipple, indication = null) { focusManager.clearFocus() },
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            // ── Theme ────────────────────────────────────────────────────────────
+            SectionTitle("Theme")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("dark" to "Dark", "light" to "Light", "system" to "System").forEach { (mode, label) ->
+                    FilterChip(
+                        selected = state.themeMode == mode,
+                        onClick = { vm.setThemeMode(mode) },
+                        label = { Text(label) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+
             // ── Archive Folder ──────────────────────────────────────────────
             SectionTitle("Archive Folder")
             OutlinedTextField(

@@ -94,4 +94,5 @@ object SettingsKeys {
     // Advanced / overridable
     const val DRIVE_FOLDER_ID = "drive_folder_id"   // default: archive folder
     const val GITHUB_REPO = "github_repo"           // format: "owner/repo"
+    const val THEME = "theme"                       // "dark" | "light" | "system"
 }

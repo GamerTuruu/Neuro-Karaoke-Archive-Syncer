@@ -21,7 +21,7 @@ class GithubApiSource(private val client: HttpClient) {
         repoName: String = DEFAULT_GITHUB_REPO,
     ): List<RepoTreeEntry> {
         val response = client.get("$GITHUB_API/repos/$repoOwner/$repoName/git/trees/$BRANCH?recursive=1") {
-            pat?.let { header(HttpHeaders.Authorization, "Bearer $it") }
+            pat?.takeIf { it.isNotBlank() }?.let { header(HttpHeaders.Authorization, "Bearer $it") }
             header(HttpHeaders.Accept, "application/vnd.github.v3+json")
             header("X-GitHub-Api-Version", "2022-11-28")
         }
@@ -47,7 +47,7 @@ class GithubApiSource(private val client: HttpClient) {
      */
     suspend fun fetchHjsonContent(url: String, pat: String?): String {
         return client.get(url) {
-            pat?.let { header(HttpHeaders.Authorization, "Bearer $it") }
+            pat?.takeIf { it.isNotBlank() }?.let { header(HttpHeaders.Authorization, "Bearer $it") }
         }.body()
     }
 }

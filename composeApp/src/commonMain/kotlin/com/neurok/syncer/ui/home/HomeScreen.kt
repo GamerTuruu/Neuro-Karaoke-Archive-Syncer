@@ -16,6 +16,9 @@ fun HomeScreen(modifier: Modifier = Modifier) {
     val vm = koinViewModel<HomeViewModel>()
     val state by vm.state.collectAsState()
 
+    // Refresh whenever the screen re-enters composition (e.g. returning from Settings)
+    LaunchedEffect(Unit) { vm.refresh() }
+
     if (state.showSyncConfirm) {
         ConfirmDialog(
             title = "Start Sync",

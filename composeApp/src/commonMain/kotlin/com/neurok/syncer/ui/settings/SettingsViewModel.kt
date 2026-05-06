@@ -16,6 +16,7 @@ data class SettingsUiState(
     val syncScheduleHours: Int = 24,
     val driveApiKey: String = "",
     val githubPat: String = "",
+    val themeMode: String = "dark",  // "dark" | "light" | "system"
     // Advanced
     val driveFolderId: String = "",
     val githubRepo: String = "",
@@ -39,6 +40,7 @@ private data class SavedSnapshot(
     val githubPat: String = "",
     val driveFolderId: String = "",
     val githubRepo: String = "",
+    val themeMode: String = "dark",
 )
 
 class SettingsViewModel(
@@ -61,7 +63,8 @@ class SettingsViewModel(
         val pat = settingsRepository.get(SettingsKeys.GITHUB_PAT) ?: ""
         val folderId = settingsRepository.get(SettingsKeys.DRIVE_FOLDER_ID) ?: ""
         val ghRepo = settingsRepository.get(SettingsKeys.GITHUB_REPO) ?: ""
-        savedSnapshot = SavedSnapshot(folderUri, schedHours, apiKey, pat, folderId, ghRepo)
+        val theme = settingsRepository.get(SettingsKeys.THEME) ?: "dark"
+        savedSnapshot = SavedSnapshot(folderUri, schedHours, apiKey, pat, folderId, ghRepo, theme)
         _state.update {
             it.copy(
                 folderUri = folderUri,
@@ -70,6 +73,7 @@ class SettingsViewModel(
                 githubPat = pat,
                 driveFolderId = folderId,
                 githubRepo = ghRepo,
+                themeMode = theme,
                 hasUnsavedChanges = false,
             )
         }
@@ -82,7 +86,8 @@ class SettingsViewModel(
                 s.driveApiKey != savedSnapshot.driveApiKey ||
                 s.githubPat != savedSnapshot.githubPat ||
                 s.driveFolderId != savedSnapshot.driveFolderId ||
-                s.githubRepo != savedSnapshot.githubRepo
+                s.githubRepo != savedSnapshot.githubRepo ||
+                s.themeMode != savedSnapshot.themeMode
         it.copy(hasUnsavedChanges = dirty)
     }
 
@@ -92,6 +97,7 @@ class SettingsViewModel(
     fun setGithubPat(pat: String) { _state.update { it.copy(githubPat = pat) }; markDirty() }
     fun setDriveFolderId(id: String) { _state.update { it.copy(driveFolderId = id) }; markDirty() }
     fun setGithubRepo(repo: String) { _state.update { it.copy(githubRepo = repo) }; markDirty() }
+    fun setThemeMode(mode: String) { _state.update { it.copy(themeMode = mode) }; markDirty() }
 
     fun requestExpandAdvanced() = _state.update { it.copy(showAdvancedWarning = true) }
     fun confirmExpandAdvanced() = _state.update { it.copy(showAdvancedWarning = false, showAdvancedSection = true) }
@@ -137,7 +143,8 @@ class SettingsViewModel(
             settingsRepository.set(SettingsKeys.GITHUB_PAT, s.githubPat)
             settingsRepository.set(SettingsKeys.DRIVE_FOLDER_ID, s.driveFolderId)
             settingsRepository.set(SettingsKeys.GITHUB_REPO, s.githubRepo)
-            savedSnapshot = SavedSnapshot(s.folderUri, s.syncScheduleHours, s.driveApiKey, s.githubPat, s.driveFolderId, s.githubRepo)
+            settingsRepository.set(SettingsKeys.THEME, s.themeMode)
+            savedSnapshot = SavedSnapshot(s.folderUri, s.syncScheduleHours, s.driveApiKey, s.githubPat, s.driveFolderId, s.githubRepo, s.themeMode)
             _state.update { it.copy(hasUnsavedChanges = false, saveMessage = "Saved") }
         }
     }
