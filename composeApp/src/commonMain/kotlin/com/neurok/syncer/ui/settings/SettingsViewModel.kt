@@ -17,7 +17,7 @@ data class SettingsUiState(
     val syncScheduleHours: Int = 24,
     val driveApiKey: String = "",
     val githubPat: String = "",
-    val themeMode: String = "dark",  // "dark" | "light" | "system"
+    val themeMode: String = "system",  // "dark" | "light" | "system"
     // Advanced
     val driveFolderId: String = "",
     val githubRepo: String = "",
@@ -31,6 +31,8 @@ data class SettingsUiState(
     val isClearingCache: Boolean = false,
     val saveMessage: String? = null,
     val hasUnsavedChanges: Boolean = false,
+    // Drive API key test result (null = not tested, starts with "✓" = ok, else error)
+    val driveKeyTestResult: String? = null,
 )
 
 // Snapshot of last-saved state for change detection
@@ -41,7 +43,7 @@ private data class SavedSnapshot(
     val githubPat: String = "",
     val driveFolderId: String = "",
     val githubRepo: String = "",
-    val themeMode: String = "dark",
+    val themeMode: String = "system",
 )
 
 class SettingsViewModel(
@@ -64,7 +66,7 @@ class SettingsViewModel(
         val pat = settingsRepository.get(SettingsKeys.GITHUB_PAT) ?: ""
         val folderId = settingsRepository.get(SettingsKeys.DRIVE_FOLDER_ID) ?: ""
         val ghRepo = settingsRepository.get(SettingsKeys.GITHUB_REPO) ?: ""
-        val theme = settingsRepository.get(SettingsKeys.THEME) ?: "dark"
+        val theme = settingsRepository.get(SettingsKeys.THEME) ?: "system"
         savedSnapshot = SavedSnapshot(folderUri, schedHours, apiKey, pat, folderId, ghRepo, theme)
         AppTheme.set(theme)  // apply immediately on load
         _state.update {
@@ -95,7 +97,7 @@ class SettingsViewModel(
 
     fun setFolderUri(uri: String) { _state.update { it.copy(folderUri = uri) }; markDirty() }
     fun setSyncSchedule(hours: Int) { _state.update { it.copy(syncScheduleHours = hours) }; markDirty() }
-    fun setDriveApiKey(key: String) { _state.update { it.copy(driveApiKey = key) }; markDirty() }
+    fun setDriveApiKey(key: String) { _state.update { it.copy(driveApiKey = key, driveKeyTestResult = null) }; markDirty() }
     fun setGithubPat(pat: String) { _state.update { it.copy(githubPat = pat) }; markDirty() }
     fun setDriveFolderId(id: String) { _state.update { it.copy(driveFolderId = id) }; markDirty() }
     fun setGithubRepo(repo: String) { _state.update { it.copy(githubRepo = repo) }; markDirty() }
@@ -153,4 +155,23 @@ class SettingsViewModel(
     }
 
     fun dismissMessage() = _state.update { it.copy(saveMessage = null) }
+
+    fun testDriveApiKey() {
+        viewModelScope.launch {
+            val key = _state.value.driveApiKey
+            if (key.isBlank()) {
+                _state.update { it.copy(driveKeyTestResult = "Enter a key first") }
+                return@launch
+            }
+            _state.update { it.copy(driveKeyTestResult = "Testing…") }
+            val folderId = _state.value.driveFolderId.ifBlank { com.neurok.syncer.data.drive.ARCHIVE_FOLDER_ID }
+            val result = driveRepository.testApiKey(key, folderId)
+            _state.update {
+                it.copy(
+                    driveKeyTestResult = if (result.isSuccess) "✓ Key is valid"
+                    else "✗ ${result.exceptionOrNull()?.message?.take(120) ?: "Unknown error"}"
+                )
+            }
+        }
+    }
 }

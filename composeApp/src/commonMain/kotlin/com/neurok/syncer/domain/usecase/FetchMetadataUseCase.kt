@@ -41,7 +41,9 @@ class FetchMetadataUseCase(
         // Step 1: Fetch GitHub metadata first — this populates the DB so the scan can match
         emit(SyncProgress.FetchingMetadata("Fetching metadata from GitHub…"))
         val metaChanged = try {
-            metadataRepository.syncFromGitHub(pat)
+            metadataRepository.syncFromGitHub(pat) { msg ->
+                emit(SyncProgress.FetchingMetadata(msg))
+            }
         } catch (e: Exception) {
             emit(SyncProgress.Error("Metadata fetch failed: ${e.message}"))
             return@flow

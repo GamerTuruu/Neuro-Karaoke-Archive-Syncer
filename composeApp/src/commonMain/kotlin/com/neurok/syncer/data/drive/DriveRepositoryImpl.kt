@@ -42,6 +42,9 @@ class DriveRepositoryImpl(
             .asFlow()
             .mapToList(Dispatchers.IO)
             .map { rows -> rows.map { DriveFile(id = it.driveFileId, name = it.driveFilename) } }
+
+    override suspend fun testApiKey(apiKey: String, folderId: String): Result<Unit> =
+        apiSource.testApiKey(apiKey, folderId)
 }
 
 internal expect fun currentTimeMs(): Long

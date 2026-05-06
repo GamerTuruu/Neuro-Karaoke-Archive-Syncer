@@ -15,21 +15,27 @@ class GithubMetadataRepository(
     private val settingsRepository: SettingsRepository,
 ) : MetadataRepository {
 
-    override suspend fun syncFromGitHub(pat: String?): Int {
+    override suspend fun syncFromGitHub(pat: String?, onProgress: suspend (String) -> Unit): Int {
         val repoStr = settingsRepository.get(SettingsKeys.GITHUB_REPO) ?: "$DEFAULT_GITHUB_OWNER/$DEFAULT_GITHUB_REPO"
         val parts = repoStr.split("/", limit = 2)
         val owner = if (parts.size == 2) parts[0] else DEFAULT_GITHUB_OWNER
         val repo  = if (parts.size == 2) parts[1] else DEFAULT_GITHUB_REPO
 
+        onProgress("Fetching repository tree…")
         val treeEntries = apiSource.fetchHjsonTree(pat, owner, repo)
+        onProgress("Tree fetched: ${treeEntries.size} .hjson files found")
 
         val existingBySha: Map<String, String> = songRepository.getAll()
             .associate { it.hjsonPath to it.hjsonSha }
 
+        val toFetch = treeEntries.filter { it.sha != existingBySha[it.path] }
+        val total = toFetch.size
+        onProgress("$total file(s) changed — fetching content…")
+
         var processed = 0
-        for (entry in treeEntries) {
-            val currentSha = existingBySha[entry.path]
-            if (currentSha == entry.sha) continue
+        for ((idx, entry) in toFetch.withIndex()) {
+            if ((idx + 1) % 10 == 0 || idx == 0)
+                onProgress("Processing ${idx + 1}/$total: ${entry.path.substringAfterLast('/')}")
 
             val text = apiSource.fetchHjsonContent(entry.downloadUrl, pat)
             val meta = try {
@@ -40,21 +46,20 @@ class GithubMetadataRepository(
 
             val existing = songRepository.getByXxHash(meta.xxHash)
             if (existing == null) {
-                // Completely new song — no local file yet
                 songRepository.upsert(meta, SyncStatus.NEW_AVAILABLE)
             } else {
-                // Sha changed. Keep NEW_AVAILABLE if there's no local file;
-                // set NEEDS_UPDATE if a local file exists (tags need to be re-applied).
                 val localUri = songRepository.getLocalUri(meta.xxHash)
                 val newStatus = if (localUri != null) SyncStatus.NEEDS_UPDATE else SyncStatus.NEW_AVAILABLE
                 songRepository.upsert(
                     song = meta,
                     syncStatus = newStatus,
-                    localFileUri = null, // preserved by upsert from existing row
+                    localFileUri = null,
                 )
             }
             processed++
         }
+
+        onProgress("Metadata done — $processed updated, ${treeEntries.size - toFetch.size} unchanged")
 
         val remotePaths = treeEntries.map { it.path }.toSet()
         songRepository.getAll()

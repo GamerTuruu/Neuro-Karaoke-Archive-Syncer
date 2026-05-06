@@ -13,4 +13,6 @@ interface DriveRepository {
     /** Clear the cached index. */
     suspend fun clearIndex()
     fun observeAll(): Flow<List<DriveFile>>
+    /** Verify the API key is valid with a lightweight call. */
+    suspend fun testApiKey(apiKey: String, folderId: String): Result<Unit>
 }

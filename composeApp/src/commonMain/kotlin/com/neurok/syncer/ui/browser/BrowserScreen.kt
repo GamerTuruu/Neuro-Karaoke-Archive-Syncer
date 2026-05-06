@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.neurok.syncer.domain.model.SongMetadata
@@ -60,7 +61,56 @@ fun BrowserScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
+            } else if (state.isGrouped) {
+                // Disc-grouped view: group by disc folder name, sorted by disc order
+                val grouped = remember(state.songs) {
+                    state.songs
+                        .groupBy { it.hjsonPath.substringBefore("/", "Disc ${it.discNumber}") }
+                        .entries
+                        .sortedBy { (_, songs) -> songs.firstOrNull()?.discNumber ?: 0 }
+                }
+                LazyColumn {
+                    grouped.forEach { (discName, songs) ->
+                        stickyHeader(key = "header_$discName") {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                tonalElevation = 2.dp,
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                ) {
+                                    Text(
+                                        discName,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                    Text(
+                                        "${songs.size}",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = MaterialTheme.colorScheme.outline,
+                                    )
+                                }
+                            }
+                        }
+                        items(songs, key = { it.xxHash }) { song ->
+                            SongRow(
+                                song = song,
+                                onClick = { onSongClick(song.xxHash) },
+                                onLongClick = { vm.toggleExcluded(song.xxHash, false) },
+                            )
+                            HorizontalDivider(thickness = 0.5.dp)
+                        }
+                    }
+                }
             } else {
+                // Flat view for search / filtered results
                 LazyColumn {
                     items(state.songs, key = { it.xxHash }) { song ->
                         SongRow(

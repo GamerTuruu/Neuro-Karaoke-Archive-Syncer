@@ -14,6 +14,7 @@ data class BrowserUiState(
     val songs: List<SongMetadata> = emptyList(),
     val query: String = "",
     val filterStatus: SyncStatus? = null,
+    val isGrouped: Boolean = true,  // true when showing all songs grouped by disc
     val isLoading: Boolean = true,
 )
 
@@ -34,22 +35,19 @@ class BrowserViewModel(
                 _filterStatus,
             ) { q, filter -> q to filter }
                 .flatMapLatest { (q, filter) ->
-                    if (q.isBlank()) songRepository.observeAll()
-                    else songRepository.searchSongs(q)
-                }
-                .map { songs ->
-                    val filter = _filterStatus.value
-                    if (filter == null) songs
-                    else songs.filter { song ->
-                        // We don't have syncStatus in domain model currently —
-                        // reflect this gap and filter by checking special/other fields
-                        // For now return all; status filtering requires DB status exposure
-                        true
+                    when {
+                        q.isNotBlank() -> songRepository.searchSongs(q)
+                        filter != null -> songRepository.observeByStatus(filter)
+                        else -> songRepository.observeAll()
                     }
                 }
                 .collect { songs ->
                     _state.update {
-                        it.copy(songs = songs, isLoading = false)
+                        it.copy(
+                            songs = songs,
+                            isLoading = false,
+                            isGrouped = _query.value.isBlank() && _filterStatus.value == null,
+                        )
                     }
                 }
         }
@@ -57,12 +55,12 @@ class BrowserViewModel(
 
     fun setQuery(q: String) {
         _query.value = q
-        _state.update { it.copy(query = q) }
+        _state.update { it.copy(query = q, isGrouped = q.isBlank() && _filterStatus.value == null) }
     }
 
     fun setFilter(status: SyncStatus?) {
         _filterStatus.value = status
-        _state.update { it.copy(filterStatus = status) }
+        _state.update { it.copy(filterStatus = status, isGrouped = _query.value.isBlank() && status == null) }
     }
 
     fun toggleExcluded(xxHash: String, currentlyExcluded: Boolean) {

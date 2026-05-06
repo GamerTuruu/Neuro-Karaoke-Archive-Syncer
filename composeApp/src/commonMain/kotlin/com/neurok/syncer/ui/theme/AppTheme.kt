@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
  * needs to be read at the root (MainActivity) and written from a nested screen (Settings).
  */
 object AppTheme {
-    private val _mode = MutableStateFlow("dark")
+    private val _mode = MutableStateFlow("system")
     val mode: StateFlow<String> = _mode
 
     fun set(mode: String) {

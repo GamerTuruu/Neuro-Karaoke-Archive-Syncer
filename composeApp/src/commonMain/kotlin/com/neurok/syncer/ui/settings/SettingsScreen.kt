@@ -260,11 +260,25 @@ fun SettingsScreen(
                     Icon(Icons.Filled.HelpOutline, "How to get API key", tint = MaterialTheme.colorScheme.primary)
                 }
             }
-            Text(
-                "Required for downloading songs from Google Drive.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(bottom = 4.dp),
+            ) {
+                OutlinedButton(
+                    onClick = vm::testDriveApiKey,
+                    enabled = state.driveApiKey.isNotBlank() && state.driveKeyTestResult != "Testing…",
+                ) { Text("Test key") }
+                state.driveKeyTestResult?.let { result ->
+                    val isOk = result.startsWith("✓")
+                    Text(
+                        result,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (isOk) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
 
             // ── GitHub PAT ──────────────────────────────────────────────────
             SectionTitle("GitHub Token (optional)")
