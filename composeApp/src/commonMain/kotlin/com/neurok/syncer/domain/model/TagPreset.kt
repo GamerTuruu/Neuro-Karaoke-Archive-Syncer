@@ -62,7 +62,7 @@ object DefaultPreset : TagPreset {
 object OGOnlyPreset : TagPreset {
     override val id = "og_only"
     override val displayName = "OG Only"
-    override val description = "Uses original (Japanese/non-English) titles and artists where available. Best for players that support CJK characters."
+    override val description = "Uses original (Japanese/non-English) titles and artists where available."
 
     override fun buildTitle(meta: SongMetadata): String {
         val base = meta.titleOG ?: meta.title
@@ -80,7 +80,7 @@ object OGOnlyPreset : TagPreset {
 object EnglishOnlyPreset : TagPreset {
     override val id = "english_only"
     override val displayName = "English Only"
-    override val description = "Always uses English titles and artists. Best for players that don't support CJK characters."
+    override val description = "Always uses English titles and artists."
 
     override fun buildTitle(meta: SongMetadata): String =
         if (meta.identify != null) "${meta.title} - ${meta.identify}" else meta.title

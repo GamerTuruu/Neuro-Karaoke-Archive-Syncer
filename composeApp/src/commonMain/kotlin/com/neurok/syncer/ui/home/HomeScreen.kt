@@ -28,6 +28,20 @@ fun HomeScreen(
     // Refresh whenever the screen re-enters composition (e.g. returning from Settings)
     LaunchedEffect(Unit) { vm.refresh() }
 
+    if (state.showCancelConfirm) {
+        ConfirmDialog(
+            title = if (state.isFetching) "Cancel Fetch?" else "Cancel Sync?",
+            message = if (state.isFetching)
+                "Stop the in-progress scan and metadata fetch?"
+            else
+                "Stop the in-progress sync? Tags and downloads already applied will remain.",
+            confirmLabel = "Stop",
+            isDestructive = true,
+            onConfirm = { vm.confirmCancel() },
+            onDismiss = { vm.dismissCancelConfirm() },
+        )
+    }
+
     if (state.showSyncConfirm) {
         ConfirmDialog(
             title = "Apply Tags & Download",
@@ -138,8 +152,8 @@ fun HomeScreen(
                 Button(
                     onClick = {
                         when {
-                            state.isFetching -> vm.cancelFetch()
-                            state.isSyncing -> vm.cancelSync()
+                            state.isFetching -> vm.requestCancel()
+                            state.isSyncing -> vm.requestCancel()
                             else -> vm.doFetch()
                         }
                     },

@@ -21,6 +21,7 @@ import com.neurok.syncer.domain.usecase.SyncTagsAndDownloadUseCase
 import com.neurok.syncer.ui.preset.PresetViewModel
 import com.neurok.syncer.platform.FileStorage
 import com.neurok.syncer.platform.Mp3TagHandler
+import com.neurok.syncer.platform.SyncNotifier
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -40,6 +41,7 @@ val androidAppModule = module {
     // Platform
     single { FileStorage(androidContext()) }
     single { Mp3TagHandler(androidContext()) }
+    single { SyncNotifier(androidContext()) }
 
     // Ktor
     single<HttpClient> {

@@ -228,7 +228,11 @@ private fun SongRow(
                 color = if (song.userIncluded) MaterialTheme.colorScheme.onSurface
                         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
             )
-            val displayArtist = if (song.artistOG != null) "${song.artistOG} (${song.artist})" else song.artist
+            val displayArtist = buildString {
+                if (song.coverArtist.isNotBlank()) { append(song.coverArtist); append(" - ") }
+                if (song.artistOG != null) append("${song.artistOG} (${song.artist})")
+                else append(song.artist)
+            }
             Text(
                 displayArtist,
                 style = MaterialTheme.typography.bodySmall,
