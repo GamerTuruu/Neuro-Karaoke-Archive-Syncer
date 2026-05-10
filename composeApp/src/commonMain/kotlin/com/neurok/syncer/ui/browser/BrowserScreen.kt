@@ -1,11 +1,15 @@
 package com.neurok.syncer.ui.browser
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -29,7 +33,7 @@ fun BrowserScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Search") })
+            TopAppBar(title = { Text("Browse") })
         }
     ) { padding ->
         Column(modifier.padding(padding)) {
@@ -45,24 +49,33 @@ fun BrowserScreen(
                 singleLine = true,
             )
 
-            // Filter chips row
-            val filters = listOf(null to "All") +
-                    listOf(SyncStatus.NEEDS_UPDATE to "Needs Update",
-                           SyncStatus.NEW_AVAILABLE to "New",
-                           SyncStatus.ORPHAN to "Orphan",
-                           SyncStatus.EXCLUDED to "Excluded")
-            ScrollableFilterRow(
-                filters = filters,
-                selected = state.filterStatus,
-                onSelect = vm::setFilter,
-            )
+            // Filter chips
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf(
+                    FilterMode.ALL to "All",
+                    FilterMode.MISSING to "Missing",
+                    FilterMode.DOWNLOADED to "Downloaded",
+                    FilterMode.UNCHECKED to "Unchecked",
+                ).forEach { (mode, label) ->
+                    FilterChip(
+                        selected = state.filterMode == mode,
+                        onClick = { vm.setFilter(mode) },
+                        label = { Text(label) },
+                    )
+                }
+            }
 
             if (state.isLoading) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             } else if (state.isGrouped) {
-                // Disc-grouped view: group by disc folder name, sorted by disc order
+                // Collapsible disc-grouped view
                 val grouped = remember(state.songs) {
                     state.songs
                         .groupBy { it.hjsonPath.substringBefore("/", "Disc ${it.discNumber}") }
@@ -71,41 +84,25 @@ fun BrowserScreen(
                 }
                 LazyColumn {
                     grouped.forEach { (discName, songs) ->
+                        val isExpanded = discName in state.expandedDiscs
                         stickyHeader(key = "header_$discName") {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                tonalElevation = 2.dp,
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                ) {
-                                    Text(
-                                        discName,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.weight(1f),
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                    Text(
-                                        "${songs.size}",
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.outline,
-                                    )
-                                }
-                            }
-                        }
-                        items(songs, key = { it.xxHash }) { song ->
-                            SongRow(
-                                song = song,
-                                onClick = { onSongClick(song.xxHash) },
-                                onLongClick = { vm.toggleExcluded(song.xxHash, false) },
+                            DiscHeader(
+                                discName = discName,
+                                songCount = songs.size,
+                                isExpanded = isExpanded,
+                                onClick = { vm.toggleDiscExpanded(discName) },
                             )
-                            HorizontalDivider(thickness = 0.5.dp)
+                        }
+                        if (isExpanded) {
+                            items(songs, key = { it.xxHash }) { song ->
+                                SongRow(
+                                    song = song,
+                                    onClick = { onSongClick(song.xxHash) },
+                                    onLongClick = { vm.toggleExcluded(song.xxHash, song.syncStatus == SyncStatus.EXCLUDED) },
+                                    onToggleIncluded = { vm.toggleUserIncluded(song.xxHash, song.userIncluded) },
+                                )
+                                HorizontalDivider(thickness = 0.5.dp)
+                            }
                         }
                     }
                 }
@@ -116,7 +113,8 @@ fun BrowserScreen(
                         SongRow(
                             song = song,
                             onClick = { onSongClick(song.xxHash) },
-                            onLongClick = { vm.toggleExcluded(song.xxHash, false) },
+                            onLongClick = { vm.toggleExcluded(song.xxHash, song.syncStatus == SyncStatus.EXCLUDED) },
+                            onToggleIncluded = { vm.toggleUserIncluded(song.xxHash, song.userIncluded) },
                         )
                         HorizontalDivider(thickness = 0.5.dp)
                     }
@@ -127,22 +125,44 @@ fun BrowserScreen(
 }
 
 @Composable
-private fun ScrollableFilterRow(
-    filters: List<Pair<SyncStatus?, String>>,
-    selected: SyncStatus?,
-    onSelect: (SyncStatus?) -> Unit,
+private fun DiscHeader(
+    discName: String,
+    songCount: Int,
+    isExpanded: Boolean,
+    onClick: () -> Unit,
 ) {
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .clickable(onClick = onClick),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 2.dp,
     ) {
-        filters.forEach { (status, label) ->
-            FilterChip(
-                selected = selected == status,
-                onClick = { onSelect(status) },
-                label = { Text(label) },
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Icon(
+                if (isExpanded) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowRight,
+                contentDescription = if (isExpanded) "Collapse" else "Expand",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                discName,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                "$songCount",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.outline,
             )
         }
     }
@@ -154,35 +174,45 @@ private fun SongRow(
     song: SongMetadata,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    onToggleIncluded: () -> Unit,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = onLongClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Disc badge
+        // Sync-selection checkbox
+        Checkbox(
+            checked = song.userIncluded,
+            onCheckedChange = { onToggleIncluded() },
+            modifier = Modifier.size(36.dp),
+        )
+        Spacer(Modifier.width(4.dp))
+        // Status badge
+        val statusColor = when (song.syncStatus) {
+            SyncStatus.UP_TO_DATE -> MaterialTheme.colorScheme.primary
+            SyncStatus.NEEDS_UPDATE -> MaterialTheme.colorScheme.secondary
+            SyncStatus.NEW_AVAILABLE -> MaterialTheme.colorScheme.tertiary
+            SyncStatus.ORPHAN -> MaterialTheme.colorScheme.error
+            SyncStatus.EXCLUDED -> MaterialTheme.colorScheme.outline
+            SyncStatus.DOWNLOADING -> MaterialTheme.colorScheme.tertiary
+        }
         Surface(
             shape = MaterialTheme.shapes.extraSmall,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(width = 36.dp, height = 24.dp),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    "D${song.discNumber}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
-        }
-        Spacer(Modifier.width(10.dp))
+            color = statusColor.copy(alpha = 0.15f),
+            modifier = Modifier.size(width = 8.dp, height = 8.dp),
+        ) {}
+        Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 song.title + (song.titleOG?.let { " — $it" } ?: ""),
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                color = if (song.userIncluded) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
             )
             Text(
                 "${song.coverArtist} ⋅ ${song.artist}",
@@ -199,3 +229,4 @@ private fun SongRow(
         )
     }
 }
+

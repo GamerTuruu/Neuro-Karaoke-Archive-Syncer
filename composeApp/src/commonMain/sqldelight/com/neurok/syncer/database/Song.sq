@@ -16,7 +16,8 @@ CREATE TABLE Song (
     hjsonSha TEXT NOT NULL,
     isExcluded INTEGER NOT NULL DEFAULT 0,
     localFileUri TEXT,
-    syncStatus TEXT NOT NULL DEFAULT 'NEW_AVAILABLE'
+    syncStatus TEXT NOT NULL DEFAULT 'NEW_AVAILABLE',
+    userIncluded INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE INDEX idx_song_disc ON Song(discNumber);
@@ -41,8 +42,11 @@ SELECT * FROM Song WHERE isExcluded = 0;
 upsert:
 INSERT OR REPLACE INTO Song (xxHash, date, title, titleOG, identify, artist, artistOG,
     coverArtist, version, discNumber, track, comment, special, hjsonPath, hjsonSha,
-    isExcluded, localFileUri, syncStatus)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    isExcluded, localFileUri, syncStatus, userIncluded)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateUserIncluded:
+UPDATE Song SET userIncluded = ? WHERE xxHash = ?;
 
 updateStatus:
 UPDATE Song SET syncStatus = ? WHERE xxHash = ?;

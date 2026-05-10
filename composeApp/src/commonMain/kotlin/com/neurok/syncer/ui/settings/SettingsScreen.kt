@@ -352,6 +352,28 @@ fun SettingsScreen(
                     placeholder = { Text("Nyss777/Neuro-Karaoke-Archive-Metadata (default)") },
                     supportingText = { Text("Format: owner/repo — the source of HJSON metadata files.") },
                 )
+                OutlinedTextField(
+                    value = state.metadataZipFolder,
+                    onValueChange = vm::setMetadataZipFolder,
+                    label = { Text("Metadata ZIP Cache Folder") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("Leave blank to use default app cache") },
+                    supportingText = { Text("Directory where downloaded metadata ZIPs are cached.") },
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text("ZIP cache limit:", style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    listOf(1, 3, 5).forEach { count ->
+                        FilterChip(
+                            selected = state.metadataZipMaxCount == count,
+                            onClick = { vm.setMetadataZipMaxCount(count) },
+                            label = { Text("$count") },
+                        )
+                    }
+                }
                 OutlinedButton(
                     onClick = vm::requestReset,
                     modifier = Modifier.fillMaxWidth(),

@@ -28,7 +28,7 @@ class SyncTagsAndDownloadUseCase(
     private val fileStorage: FileStorage,
     private val tagHandler: Mp3TagHandler,
 ) {
-    fun execute(): Flow<SyncProgress> = flow {
+    fun execute(syncEntireArchive: Boolean = true): Flow<SyncProgress> = flow {
         emit(SyncProgress.Started)
 
         val folderUri = settingsRepository.get(SettingsKeys.LOCAL_FOLDER_URI) ?: run {
@@ -41,6 +41,7 @@ class SyncTagsAndDownloadUseCase(
 
         // ── Step 1: Apply tags to NEEDS_UPDATE songs ──────────────────────────
         val toUpdate = songRepository.getByStatus(SyncStatus.NEEDS_UPDATE)
+            .filter { syncEntireArchive || it.userIncluded }
         var tagApplied = 0
         for ((index, song) in toUpdate.withIndex()) {
             val localUri = songRepository.getLocalUri(song.xxHash) ?: continue
@@ -66,6 +67,7 @@ class SyncTagsAndDownloadUseCase(
 
         // ── Step 2: Download NEW_AVAILABLE songs from Google Drive ────────────
         val toDownload = songRepository.getByStatus(SyncStatus.NEW_AVAILABLE)
+            .filter { syncEntireArchive || it.userIncluded }
         var downloaded = 0
         if (toDownload.isNotEmpty()) {
             if (apiKey.isNullOrBlank()) {
@@ -137,11 +139,13 @@ class SyncTagsAndDownloadUseCase(
             }
         }
 
+        val remainingNew = songRepository.getByStatus(SyncStatus.NEW_AVAILABLE)
+            .count { syncEntireArchive || it.userIncluded }
         val counts = songRepository.getStatusCounts()
         emit(SyncProgress.Completed(
             updated = tagApplied,
             downloaded = downloaded,
-            newAvailable = counts.newAvailable,
+            newAvailable = remainingNew,
             orphans = counts.orphans,
         ))
     }

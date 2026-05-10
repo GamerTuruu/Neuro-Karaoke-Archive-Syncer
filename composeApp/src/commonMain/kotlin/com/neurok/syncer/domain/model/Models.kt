@@ -22,6 +22,10 @@ data class SongMetadata(
     val hjsonPath: String,
     /** GitHub blob SHA — used to detect when the file changed without re-downloading */
     val hjsonSha: String,
+    /** User-controlled flag: when false, this song is excluded from selective sync. */
+    val userIncluded: Boolean = true,
+    /** Current sync status — populated from DB, not serialized. */
+    val syncStatus: SyncStatus = SyncStatus.NEW_AVAILABLE,
 )
 
 /** A local MP3 file present in the user's archive folder. */
@@ -57,14 +61,6 @@ data class StatusCounts(
     val excluded: Int = 0,
 )
 
-/** Represents one entry from the GitHub repo tree API. */
-data class RepoTreeEntry(
-    val path: String,
-    val sha: String,
-    val downloadUrl: String,
-    val size: Long,
-)
-
 /** Represents a file entry in the Google Drive folder. */
 data class DriveFile(
     val id: String,
@@ -97,4 +93,8 @@ object SettingsKeys {
     const val THEME = "theme"                       // "dark" | "light" | "system"
     /** published_at of the last successfully downloaded metadata-zip.zip release. */
     const val METADATA_ZIP_PUBLISHED_AT = "metadata_zip_published_at"
+    /** Directory path where metadata ZIPs are cached. Blank = use default app cache dir. */
+    const val METADATA_ZIP_FOLDER = "metadata_zip_folder"
+    /** Maximum number of historical metadata ZIPs to keep on disk. */
+    const val METADATA_ZIP_MAX_COUNT = "metadata_zip_max_count"
 }

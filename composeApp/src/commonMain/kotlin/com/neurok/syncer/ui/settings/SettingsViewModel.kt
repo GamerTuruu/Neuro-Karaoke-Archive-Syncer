@@ -21,6 +21,8 @@ data class SettingsUiState(
     // Advanced
     val driveFolderId: String = "",
     val githubRepo: String = "",
+    val metadataZipFolder: String = "",
+    val metadataZipMaxCount: Int = 3,
     val showAdvancedSection: Boolean = false,
     val showAdvancedWarning: Boolean = false,
     // Dialogs
@@ -44,6 +46,8 @@ private data class SavedSnapshot(
     val driveFolderId: String = "",
     val githubRepo: String = "",
     val themeMode: String = "system",
+    val metadataZipFolder: String = "",
+    val metadataZipMaxCount: Int = 3,
 )
 
 class SettingsViewModel(
@@ -67,7 +71,9 @@ class SettingsViewModel(
         val folderId = settingsRepository.get(SettingsKeys.DRIVE_FOLDER_ID) ?: ""
         val ghRepo = settingsRepository.get(SettingsKeys.GITHUB_REPO) ?: ""
         val theme = settingsRepository.get(SettingsKeys.THEME) ?: "system"
-        savedSnapshot = SavedSnapshot(folderUri, schedHours, apiKey, pat, folderId, ghRepo, theme)
+        val zipFolder = settingsRepository.get(SettingsKeys.METADATA_ZIP_FOLDER) ?: ""
+        val zipMaxCount = settingsRepository.get(SettingsKeys.METADATA_ZIP_MAX_COUNT)?.toIntOrNull() ?: 3
+        savedSnapshot = SavedSnapshot(folderUri, schedHours, apiKey, pat, folderId, ghRepo, theme, zipFolder, zipMaxCount)
         AppTheme.set(theme)  // apply immediately on load
         _state.update {
             it.copy(
@@ -78,6 +84,8 @@ class SettingsViewModel(
                 driveFolderId = folderId,
                 githubRepo = ghRepo,
                 themeMode = theme,
+                metadataZipFolder = zipFolder,
+                metadataZipMaxCount = zipMaxCount,
                 hasUnsavedChanges = false,
             )
         }
@@ -91,7 +99,9 @@ class SettingsViewModel(
                 s.githubPat != savedSnapshot.githubPat ||
                 s.driveFolderId != savedSnapshot.driveFolderId ||
                 s.githubRepo != savedSnapshot.githubRepo ||
-                s.themeMode != savedSnapshot.themeMode
+                s.themeMode != savedSnapshot.themeMode ||
+                s.metadataZipFolder != savedSnapshot.metadataZipFolder ||
+                s.metadataZipMaxCount != savedSnapshot.metadataZipMaxCount
         it.copy(hasUnsavedChanges = dirty)
     }
 
@@ -102,6 +112,8 @@ class SettingsViewModel(
     fun setDriveFolderId(id: String) { _state.update { it.copy(driveFolderId = id) }; markDirty() }
     fun setGithubRepo(repo: String) { _state.update { it.copy(githubRepo = repo) }; markDirty() }
     fun setThemeMode(mode: String) { _state.update { it.copy(themeMode = mode) }; markDirty() }
+    fun setMetadataZipFolder(path: String) { _state.update { it.copy(metadataZipFolder = path) }; markDirty() }
+    fun setMetadataZipMaxCount(count: Int) { _state.update { it.copy(metadataZipMaxCount = count) }; markDirty() }
 
     fun requestExpandAdvanced() = _state.update { it.copy(showAdvancedWarning = true) }
     fun confirmExpandAdvanced() = _state.update { it.copy(showAdvancedWarning = false, showAdvancedSection = true) }
@@ -148,8 +160,10 @@ class SettingsViewModel(
             settingsRepository.set(SettingsKeys.DRIVE_FOLDER_ID, s.driveFolderId)
             settingsRepository.set(SettingsKeys.GITHUB_REPO, s.githubRepo)
             settingsRepository.set(SettingsKeys.THEME, s.themeMode)
+            settingsRepository.set(SettingsKeys.METADATA_ZIP_FOLDER, s.metadataZipFolder)
+            settingsRepository.set(SettingsKeys.METADATA_ZIP_MAX_COUNT, s.metadataZipMaxCount.toString())
             AppTheme.set(s.themeMode)  // apply immediately
-            savedSnapshot = SavedSnapshot(s.folderUri, s.syncScheduleHours, s.driveApiKey, s.githubPat, s.driveFolderId, s.githubRepo, s.themeMode)
+            savedSnapshot = SavedSnapshot(s.folderUri, s.syncScheduleHours, s.driveApiKey, s.githubPat, s.driveFolderId, s.githubRepo, s.themeMode, s.metadataZipFolder, s.metadataZipMaxCount)
             _state.update { it.copy(hasUnsavedChanges = false, saveMessage = "Saved") }
         }
     }

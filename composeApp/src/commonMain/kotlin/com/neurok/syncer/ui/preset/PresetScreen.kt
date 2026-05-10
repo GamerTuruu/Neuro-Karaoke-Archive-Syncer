@@ -14,19 +14,20 @@ import com.neurok.syncer.domain.model.TagPresetRegistry
 import org.koin.compose.viewmodel.koinViewModel
 
 // Sample song used to preview how each preset formats tags
+// Baka Mitai — Disc 3, Yakuza 0, covered by Neuro-sama
 private val SAMPLE_SONG = SongMetadata(
     xxHash = "preview",
-    date = "2023",
-    title = "PLACEHOLDER",
-    titleOG = "プレースホルダー",
-    identify = null,
-    artist = "Neuro-sama",
-    artistOG = "ニューロ様",
-    coverArtist = "Neuro-sama",
+    date = "2024",
+    title = "Baka Mitai",
+    titleOG = "ばかみたい",
+    identify = "【Taxi Driver Edition】",
+    artist = "Kazuma Kiryu (Takaya Kuroda), Mitsuharu Fukuyama, Ryosuke Horii",
+    artistOG = null,
+    coverArtist = "Neuro",
     version = 1,
-    discNumber = 7,
-    track = "042",
-    hjsonPath = "disc7/042_placeholder.hjson",
+    discNumber = 3,
+    track = "140",
+    hjsonPath = "DISC 3 - .../140_baka_mitai.hjson",
     hjsonSha = "",
 )
 
@@ -41,6 +42,27 @@ fun PresetScreen(modifier: Modifier = Modifier) {
             kotlinx.coroutines.delay(2500)
             vm.dismissMessage()
         }
+    }
+
+    // Confirm dialog for preset switch
+    state.pendingPresetId?.let { pendingId ->
+        val pendingName = TagPresetRegistry.all.firstOrNull { it.id == pendingId }?.displayName ?: pendingId
+        AlertDialog(
+            onDismissRequest = { vm.dismissPresetDialog() },
+            title = { Text("Switch to \"$pendingName\"?") },
+            text = {
+                Text("Apply the new preset immediately to all your downloaded songs, or save it and apply on the next sync?")
+            },
+            confirmButton = {
+                Button(onClick = { vm.confirmPresetApplyNow() }) { Text("Apply Now") }
+            },
+            dismissButton = {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = { vm.dismissPresetDialog() }) { Text("Cancel") }
+                    OutlinedButton(onClick = { vm.confirmPresetNextSync() }) { Text("Next Sync") }
+                }
+            },
+        )
     }
 
     Scaffold(
@@ -61,11 +83,18 @@ fun PresetScreen(modifier: Modifier = Modifier) {
             Spacer(Modifier.height(4.dp))
 
             Text(
-                "Choose how ID3 tags are written to your MP3 files. " +
-                        "The selected preset is applied on the next sync.",
+                "Choose how ID3 tags are written to your MP3 files.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            if (state.isApplying) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                state.applyProgress?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
 
             Spacer(Modifier.height(4.dp))
 
@@ -73,7 +102,7 @@ fun PresetScreen(modifier: Modifier = Modifier) {
                 PresetCard(
                     preset = preset,
                     isSelected = state.activePresetId == preset.id,
-                    onClick = { vm.selectPreset(preset.id) },
+                    onClick = { vm.requestPreset(preset.id) },
                 )
             }
 

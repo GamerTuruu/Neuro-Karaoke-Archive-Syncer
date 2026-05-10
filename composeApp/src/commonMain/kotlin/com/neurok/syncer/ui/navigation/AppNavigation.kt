@@ -80,7 +80,9 @@ fun AppNavigation(
             modifier = Modifier,
         ) {
             composable("sync") {
-                HomeScreen(modifier = Modifier)
+                HomeScreen(
+                    onNavigateToSettings = { navController.navigate("settings") },
+                )
             }
             composable("search") {
                 BrowserScreen(

@@ -12,8 +12,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-/** Number of historical metadata zips to keep on disk. */
-private const val MAX_CACHED_ZIPS = 3
+/** Fallback maximum number of historical metadata zips to keep on disk. */
+private const val DEFAULT_MAX_CACHED_ZIPS = 3
 
 class GithubMetadataRepository(
     private val apiSource: GithubApiSource,
@@ -105,13 +105,20 @@ class GithubMetadataRepository(
 
     private suspend fun saveZipToCache(zipBytes: ByteArray, publishedAt: String) {
         withContext(Dispatchers.IO) {
-            val cacheDir = File(fileStorage.getAppCacheDir(), "metadata_zips").also { it.mkdirs() }
+            val customFolder = settingsRepository.get(SettingsKeys.METADATA_ZIP_FOLDER)
+            val cacheDir = if (!customFolder.isNullOrBlank()) {
+                File(customFolder).also { it.mkdirs() }
+            } else {
+                File(fileStorage.getAppCacheDir(), "metadata_zips").also { it.mkdirs() }
+            }
+            val maxZips = settingsRepository.get(SettingsKeys.METADATA_ZIP_MAX_COUNT)
+                ?.toIntOrNull()?.coerceAtLeast(1) ?: DEFAULT_MAX_CACHED_ZIPS
             val safeName = publishedAt.replace(Regex("[^a-zA-Z0-9_\\-]"), "_")
             File(cacheDir, "metadata_$safeName.zip").writeBytes(zipBytes)
-            // Prune: keep only the most recent MAX_CACHED_ZIPS files
+            // Prune: keep only the most recent maxZips files
             cacheDir.listFiles { f -> f.name.startsWith("metadata_") && f.name.endsWith(".zip") }
                 ?.sortedByDescending { it.lastModified() }
-                ?.drop(MAX_CACHED_ZIPS)
+                ?.drop(maxZips)
                 ?.forEach { it.delete() }
         }
     }

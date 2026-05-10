@@ -18,6 +18,7 @@ import com.neurok.syncer.domain.usecase.FetchMetadataUseCase
 import com.neurok.syncer.domain.usecase.FullSyncUseCase
 import com.neurok.syncer.domain.usecase.ScanLocalFilesUseCase
 import com.neurok.syncer.domain.usecase.SyncTagsAndDownloadUseCase
+import com.neurok.syncer.ui.preset.PresetViewModel
 import com.neurok.syncer.platform.FileStorage
 import com.neurok.syncer.platform.Mp3TagHandler
 import io.ktor.client.*
@@ -66,4 +67,7 @@ val androidAppModule = module {
     singleOf(::FetchMetadataUseCase)
     singleOf(::SyncTagsAndDownloadUseCase)
     singleOf(::FullSyncUseCase)
+
+    // ViewModels that need extra constructor params
+    single { PresetViewModel(get(), get(), get()) }
 }

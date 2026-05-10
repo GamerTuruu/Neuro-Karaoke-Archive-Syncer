@@ -10,12 +10,16 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
+enum class FilterMode { ALL, MISSING, DOWNLOADED, UNCHECKED }
+
 data class BrowserUiState(
     val songs: List<SongMetadata> = emptyList(),
     val query: String = "",
-    val filterStatus: SyncStatus? = null,
-    val isGrouped: Boolean = true,  // true when showing all songs grouped by disc
+    val filterMode: FilterMode = FilterMode.ALL,
+    val isGrouped: Boolean = true,
     val isLoading: Boolean = true,
+    /** Disc folder names that are currently expanded. Empty = all collapsed. */
+    val expandedDiscs: Set<String> = emptySet(),
 )
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
@@ -24,7 +28,7 @@ class BrowserViewModel(
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
-    private val _filterStatus = MutableStateFlow<SyncStatus?>(null)
+    private val _filterMode = MutableStateFlow(FilterMode.ALL)
     private val _state = MutableStateFlow(BrowserUiState())
     val state: StateFlow<BrowserUiState> = _state
 
@@ -32,21 +36,34 @@ class BrowserViewModel(
         viewModelScope.launch {
             combine(
                 _query.debounce(200),
-                _filterStatus,
+                _filterMode,
             ) { q, filter -> q to filter }
                 .flatMapLatest { (q, filter) ->
                     when {
                         q.isNotBlank() -> songRepository.searchSongs(q)
-                        filter != null -> songRepository.observeByStatus(filter)
+                        filter == FilterMode.MISSING ->
+                            songRepository.observeByStatus(SyncStatus.NEW_AVAILABLE)
                         else -> songRepository.observeAll()
                     }
                 }
+                .map { songs ->
+                    val filter = _filterMode.value
+                    val q = _query.value
+                    when {
+                        q.isNotBlank() -> songs
+                        filter == FilterMode.DOWNLOADED ->
+                            songs.filter { it.syncStatus == SyncStatus.UP_TO_DATE || it.syncStatus == SyncStatus.NEEDS_UPDATE }
+                        filter == FilterMode.UNCHECKED -> songs.filter { !it.userIncluded }
+                        else -> songs
+                    }
+                }
                 .collect { songs ->
+                    val filter = _filterMode.value
                     _state.update {
                         it.copy(
                             songs = songs,
                             isLoading = false,
-                            isGrouped = _query.value.isBlank() && _filterStatus.value == null,
+                            isGrouped = _query.value.isBlank() && filter == FilterMode.ALL,
                         )
                     }
                 }
@@ -55,17 +72,38 @@ class BrowserViewModel(
 
     fun setQuery(q: String) {
         _query.value = q
-        _state.update { it.copy(query = q, isGrouped = q.isBlank() && _filterStatus.value == null) }
+        _state.update { it.copy(query = q, isGrouped = q.isBlank() && _filterMode.value == FilterMode.ALL) }
     }
 
-    fun setFilter(status: SyncStatus?) {
-        _filterStatus.value = status
-        _state.update { it.copy(filterStatus = status, isGrouped = _query.value.isBlank() && status == null) }
+    fun setFilter(mode: FilterMode) {
+        _filterMode.value = mode
+        _state.update {
+            it.copy(
+                filterMode = mode,
+                isGrouped = _query.value.isBlank() && mode == FilterMode.ALL,
+            )
+        }
+    }
+
+    fun toggleDiscExpanded(discName: String) {
+        _state.update { s ->
+            val expanded = if (s.expandedDiscs.contains(discName))
+                s.expandedDiscs - discName
+            else
+                s.expandedDiscs + discName
+            s.copy(expandedDiscs = expanded)
+        }
     }
 
     fun toggleExcluded(xxHash: String, currentlyExcluded: Boolean) {
         viewModelScope.launch {
             songRepository.updateExcluded(xxHash, !currentlyExcluded)
+        }
+    }
+
+    fun toggleUserIncluded(xxHash: String, current: Boolean) {
+        viewModelScope.launch {
+            songRepository.updateUserIncluded(xxHash, !current)
         }
     }
 }

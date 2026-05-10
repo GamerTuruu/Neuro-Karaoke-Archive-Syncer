@@ -23,14 +23,20 @@ data class HomeUiState(
     // Fetch = scan local + pull GitHub metadata
     val isFetching: Boolean = false,
     val fetchProgress: SyncProgress? = null,
+    val fetchLog: List<String> = emptyList(),
     // Sync = apply tags + download new songs
     val isSyncing: Boolean = false,
     val syncProgress: SyncProgress? = null,
+    val syncLog: List<String> = emptyList(),
     /** In-memory timestamp of the last Fetch this session; null if never fetched. */
     val lastFetchTimeMs: Long? = null,
     val folderConfigured: Boolean = false,
     val driveApiKeyConfigured: Boolean = false,
     val showSyncConfirm: Boolean = false,
+    /** True while the initial settings load is in progress — suppresses "folder not configured" flash. */
+    val isInitializing: Boolean = true,
+    /** When false, only songs with userIncluded=true are synced. */
+    val syncEntireArchive: Boolean = true,
 )
 
 class HomeViewModel(
@@ -60,10 +66,15 @@ class HomeViewModel(
     fun doFetch() {
         if (_state.value.isFetching || _state.value.isSyncing) return
         fetchJob = viewModelScope.launch {
-            _state.update { it.copy(isFetching = true, fetchProgress = null) }
+            _state.update { it.copy(isFetching = true, fetchProgress = null, fetchLog = emptyList()) }
             try {
                 fetchMetadataUseCase.execute().collect { progress ->
-                    _state.update { it.copy(fetchProgress = progress) }
+                    _state.update { s ->
+                        s.copy(
+                            fetchProgress = progress,
+                            fetchLog = s.fetchLog + progressToLogLine(progress),
+                        )
+                    }
                     if (progress is SyncProgress.Completed || progress is SyncProgress.Error) {
                         _state.update {
                             it.copy(isFetching = false, lastFetchTimeMs = System.currentTimeMillis())
@@ -75,6 +86,7 @@ class HomeViewModel(
                 _state.update { it.copy(
                     isFetching = false,
                     fetchProgress = SyncProgress.Error("Fetch cancelled"),
+                    fetchLog = it.fetchLog + "Fetch cancelled",
                 ) }
                 throw kotlinx.coroutines.CancellationException("Fetch cancelled")
             } finally {
@@ -98,11 +110,17 @@ class HomeViewModel(
     fun doSync() {
         _state.update { it.copy(showSyncConfirm = false) }
         if (_state.value.isFetching || _state.value.isSyncing) return
+        val syncEntireArchive = _state.value.syncEntireArchive
         syncJob = viewModelScope.launch {
-            _state.update { it.copy(isSyncing = true, syncProgress = null) }
+            _state.update { it.copy(isSyncing = true, syncProgress = null, syncLog = emptyList()) }
             try {
-                syncTagsAndDownloadUseCase.execute().collect { progress ->
-                    _state.update { it.copy(syncProgress = progress) }
+                syncTagsAndDownloadUseCase.execute(syncEntireArchive).collect { progress ->
+                    _state.update { s ->
+                        s.copy(
+                            syncProgress = progress,
+                            syncLog = s.syncLog + progressToLogLine(progress),
+                        )
+                    }
                     if (progress is SyncProgress.Completed || progress is SyncProgress.Error) {
                         _state.update { it.copy(isSyncing = false) }
                         doRefresh()
@@ -112,6 +130,7 @@ class HomeViewModel(
                 _state.update { it.copy(
                     isSyncing = false,
                     syncProgress = SyncProgress.Error("Sync cancelled"),
+                    syncLog = it.syncLog + "Sync cancelled",
                 ) }
                 throw kotlinx.coroutines.CancellationException("Sync cancelled")
             } finally {
@@ -119,6 +138,8 @@ class HomeViewModel(
             }
         }
     }
+
+    fun toggleSyncEntireArchive() = _state.update { it.copy(syncEntireArchive = !it.syncEntireArchive) }
 
     /** Cancel an in-progress Sync. */
     fun cancelSync() { syncJob?.cancel() }
@@ -136,7 +157,25 @@ class HomeViewModel(
                 storageBytes = storage,
                 folderConfigured = !folderUri.isNullOrBlank(),
                 driveApiKeyConfigured = !apiKey.isNullOrBlank(),
+                isInitializing = false,
             )
         }
+    }
+
+    private fun progressToLogLine(progress: SyncProgress): String = when (progress) {
+        is SyncProgress.Started -> "Starting…"
+        is SyncProgress.ScanningLocal -> "Scanning local files (${progress.current}/${progress.total})…"
+        is SyncProgress.FetchingMetadata -> progress.message
+        is SyncProgress.ApplyingTags -> "Tagging (${progress.current}/${progress.total}): ${progress.songTitle}"
+        is SyncProgress.Downloading -> "Downloading (${progress.current}/${progress.total}): ${progress.filename}"
+        is SyncProgress.Completed -> buildString {
+            append("Done.")
+            if (progress.updated > 0) append(" ${progress.updated} tag(s) applied.")
+            if (progress.downloaded > 0) append(" ${progress.downloaded} downloaded.")
+            if (progress.newAvailable > 0) append(" ${progress.newAvailable} not yet downloaded (no API key or excluded).")
+            if (progress.updated == 0 && progress.downloaded == 0 && progress.newAvailable == 0)
+                append(" Nothing to do.")
+        }
+        is SyncProgress.Error -> "Error: ${progress.message}"
     }
 }

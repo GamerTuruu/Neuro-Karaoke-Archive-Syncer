@@ -15,6 +15,7 @@ interface SongRepository {
     /** Update only the local file path without changing the sync status. */
     suspend fun updateLocalUriOnly(xxHash: String, localFileUri: String)
     suspend fun updateExcluded(xxHash: String, excluded: Boolean)
+    suspend fun updateUserIncluded(xxHash: String, included: Boolean)
     suspend fun updateHjsonSha(xxHash: String, sha: String, newStatus: SyncStatus)
     suspend fun getStatusCounts(): StatusCounts
     fun searchSongs(query: String): Flow<List<SongMetadata>>

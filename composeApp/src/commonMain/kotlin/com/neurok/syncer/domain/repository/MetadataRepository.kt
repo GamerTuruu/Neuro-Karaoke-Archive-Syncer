@@ -1,8 +1,5 @@
 package com.neurok.syncer.domain.repository
 
-import com.neurok.syncer.domain.model.RepoTreeEntry
-import com.neurok.syncer.domain.model.SongMetadata
-
 interface MetadataRepository {
     /**
      * Fetch the full repo tree from GitHub and return all .hjson entries.
