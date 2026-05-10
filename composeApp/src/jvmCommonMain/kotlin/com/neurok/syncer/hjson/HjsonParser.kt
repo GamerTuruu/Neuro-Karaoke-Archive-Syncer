@@ -21,7 +21,14 @@ object HjsonParser {
     fun parse(text: String, hjsonPath: String, hjsonSha: String): SongMetadata {
         val obj = JsonValue.readHjson(text).asObject()
 
-        fun str(key: String): String? = obj.get(key)?.asString()?.takeIf { it.isNotBlank() }
+        fun str(key: String): String? {
+            val v = obj.get(key) ?: return null
+            return when {
+                v.isString -> v.asString().takeIf { it.isNotBlank() }
+                v.isNumber -> v.asInt().toString()
+                else -> null
+            }
+        }
         fun int(key: String): Int = obj.get(key)?.asInt() ?: error("Missing required int field: $key")
 
         return SongMetadata(
