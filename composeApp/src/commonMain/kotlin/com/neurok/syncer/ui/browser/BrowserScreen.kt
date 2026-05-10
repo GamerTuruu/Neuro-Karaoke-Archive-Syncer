@@ -4,9 +4,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
@@ -33,7 +35,13 @@ fun BrowserScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Browse") })
+            TopAppBar(
+                title = { Text("Browse") },
+                actions = {
+                    TextButton(onClick = vm::uncheckAll) { Text("✗ All") }
+                    TextButton(onClick = vm::checkAll) { Text("✓ All") }
+                },
+            )
         }
     ) { padding ->
         Column(modifier.padding(padding)) {
@@ -49,10 +57,11 @@ fun BrowserScreen(
                 singleLine = true,
             )
 
-            // Filter chips
+            // Filter chips (scrollable)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -61,6 +70,7 @@ fun BrowserScreen(
                     FilterMode.MISSING to "Missing",
                     FilterMode.DOWNLOADED to "Downloaded",
                     FilterMode.UNCHECKED to "Unchecked",
+                    FilterMode.CHECKED to "Checked",
                 ).forEach { (mode, label) ->
                     FilterChip(
                         selected = state.filterMode == mode,

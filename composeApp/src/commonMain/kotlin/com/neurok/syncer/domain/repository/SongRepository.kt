@@ -16,6 +16,7 @@ interface SongRepository {
     suspend fun updateLocalUriOnly(xxHash: String, localFileUri: String)
     suspend fun updateExcluded(xxHash: String, excluded: Boolean)
     suspend fun updateUserIncluded(xxHash: String, included: Boolean)
+    suspend fun updateAllUserIncluded(included: Boolean)
     suspend fun updateHjsonSha(xxHash: String, sha: String, newStatus: SyncStatus)
     suspend fun getStatusCounts(): StatusCounts
     fun searchSongs(query: String): Flow<List<SongMetadata>>

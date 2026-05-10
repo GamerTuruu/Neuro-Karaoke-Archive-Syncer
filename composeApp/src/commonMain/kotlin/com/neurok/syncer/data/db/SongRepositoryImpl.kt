@@ -32,7 +32,7 @@ class SongRepositoryImpl(private val db: NKSyncerDatabase) : SongRepository {
             // Preserve excluded state and local URI for already-known songs
             val existing = queries.selectByXxHash(song.xxHash).executeAsOneOrNull()
             val isExcluded = existing?.isExcluded ?: 0L
-            val userIncluded = existing?.userIncluded ?: 1L
+            val userIncluded = existing?.userIncluded ?: 0L
             val uri = localFileUri ?: existing?.localFileUri
             val finalStatus = if (isExcluded == 1L) SyncStatus.EXCLUDED.name else syncStatus.name
 
@@ -79,6 +79,10 @@ class SongRepositoryImpl(private val db: NKSyncerDatabase) : SongRepository {
 
     override suspend fun updateUserIncluded(xxHash: String, included: Boolean) = withContext(Dispatchers.IO) {
         queries.updateUserIncluded(if (included) 1L else 0L, xxHash)
+    }
+
+    override suspend fun updateAllUserIncluded(included: Boolean) = withContext(Dispatchers.IO) {
+        queries.updateAllUserIncluded(if (included) 1L else 0L)
     }
 
     override suspend fun updateHjsonSha(xxHash: String, sha: String, newStatus: SyncStatus) =

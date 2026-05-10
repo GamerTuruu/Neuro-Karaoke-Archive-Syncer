@@ -178,7 +178,7 @@ fun HomeScreen(
                         Text("Check & Sync")
                     }
                 }
-                // Dropdown arrow button
+                // Dropdown arrow button — distinct color to visually separate from main action
                 Box {
                     Button(
                         onClick = { showDropdown = true },
@@ -186,6 +186,10 @@ fun HomeScreen(
                         modifier = Modifier.width(40.dp),
                         contentPadding = PaddingValues(0.dp),
                         shape = RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 12.dp, bottomEnd = 12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        ),
                     ) {
                         Text("▾")
                     }
@@ -220,7 +224,7 @@ fun HomeScreen(
                 )
             }
 
-            // ── Log panels ────────────────────────────────────────────────────
+            // ── Log / Guide ──────────────────────────────────────────────────────────
             val activeLogs = when {
                 state.isFetching || state.fetchLog.isNotEmpty() && state.syncLog.isEmpty() -> state.fetchLog
                 state.isSyncing || state.syncLog.isNotEmpty() -> state.syncLog
@@ -231,9 +235,22 @@ fun HomeScreen(
                 state.fetchLog.isNotEmpty() && state.syncLog.isEmpty() -> "Fetch log"
                 else -> "Sync log"
             }
-            if (activeLogs.isNotEmpty()) {
-                LogPanel(label = logLabel, lines = activeLogs, isRunning = state.isFetching || state.isSyncing, modifier = Modifier.weight(1f))
+            var logVisible by remember { mutableStateOf(true) }
+            var autoScroll by remember { mutableStateOf(true) }
+            // Auto-show and reset autoscroll when a new operation produces log lines
+            LaunchedEffect(activeLogs.isNotEmpty()) {
+                if (activeLogs.isNotEmpty()) { logVisible = true; autoScroll = true }
             }
+            LogPanel(
+                label = logLabel,
+                lines = activeLogs,
+                isRunning = state.isFetching || state.isSyncing,
+                logVisible = logVisible,
+                autoScroll = autoScroll,
+                onToggleVisible = { logVisible = !logVisible },
+                onToggleAutoScroll = { autoScroll = !autoScroll },
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }
@@ -273,28 +290,26 @@ private fun WarningCard(message: String, onClick: () -> Unit, isInfo: Boolean = 
 }
 
 @Composable
-private fun LogPanel(label: String, lines: List<String>, isRunning: Boolean, modifier: Modifier = Modifier) {
+private fun LogPanel(
+    label: String,
+    lines: List<String>,
+    isRunning: Boolean,
+    logVisible: Boolean,
+    autoScroll: Boolean,
+    onToggleVisible: () -> Unit,
+    onToggleAutoScroll: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
-    // Track whether user has scrolled up (pauses auto-scroll)
-    var userScrolled by remember { mutableStateOf(false) }
 
-    // Auto-scroll to bottom on new lines, unless the user has scrolled up
     LaunchedEffect(lines.size) {
-        if (!userScrolled && lines.isNotEmpty()) {
-            coroutineScope.launch {
-                listState.animateScrollToItem(lines.size - 1)
-            }
+        if (autoScroll && lines.isNotEmpty()) {
+            coroutineScope.launch { listState.animateScrollToItem(lines.size - 1) }
         }
     }
 
-    // Detect user scroll: if not at bottom, mark as user-scrolled
-    LaunchedEffect(listState.firstVisibleItemIndex, listState.firstVisibleItemScrollOffset) {
-        val layoutInfo = listState.layoutInfo
-        val lastVisible = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-        val isAtBottom = lastVisible >= lines.size - 1
-        if (isAtBottom) userScrolled = false
-    }
+    val showLogContent = logVisible && lines.isNotEmpty()
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
@@ -302,33 +317,96 @@ private fun LogPanel(label: String, lines: List<String>, isRunning: Boolean, mod
             horizontalArrangement = Arrangement.SpaceBetween,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (isRunning) {
-                CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp)
-            }
-        }
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            shape = MaterialTheme.shapes.small,
-            modifier = Modifier.fillMaxWidth().weight(1f),
-        ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.padding(8.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                userScrollEnabled = true,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(lines) { line ->
+                Text(
+                    if (lines.isNotEmpty() || isRunning) label else "How to use",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (isRunning) {
+                    CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp)
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (lines.isNotEmpty()) {
+                    // Auto-scroll toggle: ↓ = on (primary), ↓ = off (muted)
+                    TextButton(
+                        onClick = onToggleAutoScroll,
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                    ) {
+                        Text(
+                            "↓",
+                            color = if (autoScroll) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        )
+                    }
+                }
+                // Show / hide log
+                TextButton(
+                    onClick = onToggleVisible,
+                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
+                ) {
                     Text(
-                        line,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = when {
-                            line.startsWith("Error") -> MaterialTheme.colorScheme.error
-                            line.startsWith("Done") -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.onSurfaceVariant
-                        },
+                        if (logVisible) "▼" else "▶",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+        }
+        if (showLogContent) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+            ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.padding(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    items(lines) { line ->
+                        Text(
+                            line,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = when {
+                                line.startsWith("Error") -> MaterialTheme.colorScheme.error
+                                line.startsWith("Done") -> MaterialTheme.colorScheme.primary
+                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+            }
+        } else {
+            HowToUseGuide(modifier = Modifier.fillMaxWidth().weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun HowToUseGuide(modifier: Modifier = Modifier) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.small,
+        modifier = modifier,
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text("Quick Start", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            listOf(
+                "1. Go to Settings → select your karaoke archive folder → Save.",
+                "2. Add a Google Drive API key in Settings to enable song downloads.",
+                "3. Tap \"Check & Sync\" to scan local files and fetch metadata from GitHub.",
+                "4. Review counts: ★ New = not downloaded yet, ↑ Updates = tags changed.",
+                "5. Use ▾ → \"Sync Only\" to apply ID3 tags and download new songs.",
+                "6. Open Browse tab to filter songs and check ✔ which to include in sync.",
+            ).forEach { step ->
+                Text(step, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

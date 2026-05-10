@@ -21,6 +21,7 @@ import com.neurok.syncer.ui.navigation.AppNavigation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.koin.android.ext.android.inject
 import java.util.concurrent.TimeUnit
 
@@ -59,6 +60,9 @@ class MainActivity : ComponentActivity() {
                 notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
             }
         }
+
+        // Read persisted theme before composing to avoid the dark→light flash on launch
+        runBlocking { settingsRepository.get(SettingsKeys.THEME)?.let { AppTheme.set(it) } }
 
         setContent {
             val themeMode by AppTheme.mode.collectAsState()

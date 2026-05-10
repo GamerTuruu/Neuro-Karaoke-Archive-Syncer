@@ -10,7 +10,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
-enum class FilterMode { ALL, MISSING, DOWNLOADED, UNCHECKED }
+enum class FilterMode { ALL, MISSING, DOWNLOADED, UNCHECKED, CHECKED }
 
 data class BrowserUiState(
     val songs: List<SongMetadata> = emptyList(),
@@ -54,6 +54,7 @@ class BrowserViewModel(
                         filter == FilterMode.DOWNLOADED ->
                             songs.filter { it.syncStatus == SyncStatus.UP_TO_DATE || it.syncStatus == SyncStatus.NEEDS_UPDATE }
                         filter == FilterMode.UNCHECKED -> songs.filter { !it.userIncluded }
+                        filter == FilterMode.CHECKED -> songs.filter { it.userIncluded }
                         else -> songs
                     }
                 }
@@ -63,7 +64,7 @@ class BrowserViewModel(
                         it.copy(
                             songs = songs,
                             isLoading = false,
-                            isGrouped = _query.value.isBlank() && filter == FilterMode.ALL,
+                            isGrouped = _query.value.isBlank(),
                         )
                     }
                 }
@@ -72,7 +73,7 @@ class BrowserViewModel(
 
     fun setQuery(q: String) {
         _query.value = q
-        _state.update { it.copy(query = q, isGrouped = q.isBlank() && _filterMode.value == FilterMode.ALL) }
+        _state.update { it.copy(query = q, isGrouped = q.isBlank()) }
     }
 
     fun setFilter(mode: FilterMode) {
@@ -80,7 +81,7 @@ class BrowserViewModel(
         _state.update {
             it.copy(
                 filterMode = mode,
-                isGrouped = _query.value.isBlank() && mode == FilterMode.ALL,
+                isGrouped = _query.value.isBlank(),
             )
         }
     }
@@ -105,5 +106,13 @@ class BrowserViewModel(
         viewModelScope.launch {
             songRepository.updateUserIncluded(xxHash, !current)
         }
+    }
+
+    fun checkAll() {
+        viewModelScope.launch { songRepository.updateAllUserIncluded(true) }
+    }
+
+    fun uncheckAll() {
+        viewModelScope.launch { songRepository.updateAllUserIncluded(false) }
     }
 }

@@ -48,6 +48,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 updateUserIncluded:
 UPDATE Song SET userIncluded = ? WHERE xxHash = ?;
 
+updateAllUserIncluded:
+UPDATE Song SET userIncluded = ?;
+
 updateStatus:
 UPDATE Song SET syncStatus = ? WHERE xxHash = ?;
 
