@@ -16,7 +16,6 @@ data class SettingsUiState(
     val folderUri: String = "",
     val syncScheduleHours: Int = 24,
     val driveApiKey: String = "",
-    val githubPat: String = "",
     val themeMode: String = "system",  // "dark" | "light" | "system"
     // Advanced
     val driveFolderId: String = "",
@@ -42,7 +41,6 @@ private data class SavedSnapshot(
     val folderUri: String = "",
     val syncScheduleHours: Int = 24,
     val driveApiKey: String = "",
-    val githubPat: String = "",
     val driveFolderId: String = "",
     val githubRepo: String = "",
     val themeMode: String = "system",
@@ -67,20 +65,18 @@ class SettingsViewModel(
         val folderUri = settingsRepository.get(SettingsKeys.LOCAL_FOLDER_URI) ?: ""
         val schedHours = settingsRepository.getInt(SettingsKeys.SYNC_SCHEDULE_HOURS, 24)
         val apiKey = settingsRepository.get(SettingsKeys.DRIVE_API_KEY) ?: ""
-        val pat = settingsRepository.get(SettingsKeys.GITHUB_PAT) ?: ""
         val folderId = settingsRepository.get(SettingsKeys.DRIVE_FOLDER_ID) ?: ""
         val ghRepo = settingsRepository.get(SettingsKeys.GITHUB_REPO) ?: ""
         val theme = settingsRepository.get(SettingsKeys.THEME) ?: "system"
         val zipFolder = settingsRepository.get(SettingsKeys.METADATA_ZIP_FOLDER) ?: ""
         val zipMaxCount = settingsRepository.get(SettingsKeys.METADATA_ZIP_MAX_COUNT)?.toIntOrNull() ?: 3
-        savedSnapshot = SavedSnapshot(folderUri, schedHours, apiKey, pat, folderId, ghRepo, theme, zipFolder, zipMaxCount)
+        savedSnapshot = SavedSnapshot(folderUri, schedHours, apiKey, folderId, ghRepo, theme, zipFolder, zipMaxCount)
         AppTheme.set(theme)  // apply immediately on load
         _state.update {
             it.copy(
                 folderUri = folderUri,
                 syncScheduleHours = schedHours,
                 driveApiKey = apiKey,
-                githubPat = pat,
                 driveFolderId = folderId,
                 githubRepo = ghRepo,
                 themeMode = theme,
@@ -96,7 +92,6 @@ class SettingsViewModel(
         val dirty = s.folderUri != savedSnapshot.folderUri ||
                 s.syncScheduleHours != savedSnapshot.syncScheduleHours ||
                 s.driveApiKey != savedSnapshot.driveApiKey ||
-                s.githubPat != savedSnapshot.githubPat ||
                 s.driveFolderId != savedSnapshot.driveFolderId ||
                 s.githubRepo != savedSnapshot.githubRepo ||
                 s.themeMode != savedSnapshot.themeMode ||
@@ -108,7 +103,6 @@ class SettingsViewModel(
     fun setFolderUri(uri: String) { _state.update { it.copy(folderUri = uri) }; markDirty() }
     fun setSyncSchedule(hours: Int) { _state.update { it.copy(syncScheduleHours = hours) }; markDirty() }
     fun setDriveApiKey(key: String) { _state.update { it.copy(driveApiKey = key, driveKeyTestResult = null) }; markDirty() }
-    fun setGithubPat(pat: String) { _state.update { it.copy(githubPat = pat) }; markDirty() }
     fun setDriveFolderId(id: String) { _state.update { it.copy(driveFolderId = id) }; markDirty() }
     fun setGithubRepo(repo: String) { _state.update { it.copy(githubRepo = repo) }; markDirty() }
     fun setThemeMode(mode: String) { _state.update { it.copy(themeMode = mode) }; markDirty() }
@@ -156,14 +150,13 @@ class SettingsViewModel(
             settingsRepository.set(SettingsKeys.LOCAL_FOLDER_URI, s.folderUri)
             settingsRepository.set(SettingsKeys.SYNC_SCHEDULE_HOURS, s.syncScheduleHours.toString())
             settingsRepository.set(SettingsKeys.DRIVE_API_KEY, s.driveApiKey)
-            settingsRepository.set(SettingsKeys.GITHUB_PAT, s.githubPat)
             settingsRepository.set(SettingsKeys.DRIVE_FOLDER_ID, s.driveFolderId)
             settingsRepository.set(SettingsKeys.GITHUB_REPO, s.githubRepo)
             settingsRepository.set(SettingsKeys.THEME, s.themeMode)
             settingsRepository.set(SettingsKeys.METADATA_ZIP_FOLDER, s.metadataZipFolder)
             settingsRepository.set(SettingsKeys.METADATA_ZIP_MAX_COUNT, s.metadataZipMaxCount.toString())
             AppTheme.set(s.themeMode)  // apply immediately
-            savedSnapshot = SavedSnapshot(s.folderUri, s.syncScheduleHours, s.driveApiKey, s.githubPat, s.driveFolderId, s.githubRepo, s.themeMode, s.metadataZipFolder, s.metadataZipMaxCount)
+            savedSnapshot = SavedSnapshot(s.folderUri, s.syncScheduleHours, s.driveApiKey, s.driveFolderId, s.githubRepo, s.themeMode, s.metadataZipFolder, s.metadataZipMaxCount)
             _state.update { it.copy(hasUnsavedChanges = false, saveMessage = "Saved") }
         }
     }

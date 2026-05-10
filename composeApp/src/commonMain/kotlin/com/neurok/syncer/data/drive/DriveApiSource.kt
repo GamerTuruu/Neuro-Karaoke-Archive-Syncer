@@ -84,6 +84,10 @@ class DriveApiSource(private val client: HttpClient) {
             parameter("alt", "media")
             parameter("key", apiKey)
         }.execute { response ->
+            if (response.status.value >= 400) {
+                val body = response.bodyAsText()
+                throw Exception("Drive download error ${response.status.value}: ${body.take(300)}")
+            }
             val contentLength = response.headers[HttpHeaders.ContentLength]?.toLongOrNull() ?: -1L
             val channel = response.bodyAsChannel()
             var received = 0L
@@ -107,6 +111,9 @@ class DriveApiSource(private val client: HttpClient) {
             parameter("alt", "media")
             parameter("key", apiKey)
             header(HttpHeaders.Range, "bytes=0-${maxBytes - 1}")
+        }
+        if (response.status.value >= 400) {
+            throw Exception("Drive partial download error ${response.status.value}")
         }
         return response.body()
     }

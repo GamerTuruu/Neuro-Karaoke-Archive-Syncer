@@ -34,7 +34,6 @@ fun SettingsScreen(
     val focusManager = LocalFocusManager.current
     val noRipple = remember { MutableInteractionSource() }
     var showApiHelp by remember { mutableStateOf(false) }
-    var showPatHelp by remember { mutableStateOf(false) }
 
     // Intercept back press to warn about unsaved changes
     BackHandler(enabled = state.hasUnsavedChanges) {
@@ -86,34 +85,6 @@ fun SettingsScreen(
             confirmLabel = "Clear",
             onConfirm = { vm.confirmClearCache() },
             onDismiss = { vm.dismissClearCacheConfirm() },
-        )
-    }
-    if (showPatHelp) {
-        AlertDialog(
-            onDismissRequest = { showPatHelp = false },
-            title = { Text("Getting a GitHub Token") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("A token is optional but raises the API rate limit from 60 to 5,000 requests/hour.")
-                    Text("1. Go to github.com → Settings")
-                    Text("2. Developer settings → Personal access tokens → Tokens (classic)")
-                    Text("3. Click \"Generate new token (classic)\"")
-                    Text("4. Give it a name, set expiry")
-                    Text("5. Under Scopes: only tick \"public_repo\" (read-only is enough)")
-                    Text("6. Click Generate token and copy it")
-                    Text("The token starts with \"ghp_\".",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { uriHandler.openUri("https://github.com/settings/tokens/new") }) {
-                    Text("Open GitHub")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPatHelp = false }) { Text("Close") }
-            },
         )
     }
     if (showApiHelp) {
@@ -279,28 +250,6 @@ fun SettingsScreen(
                     )
                 }
             }
-
-            // ── GitHub PAT ──────────────────────────────────────────────────
-            SectionTitle("GitHub Token (optional)")
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                OutlinedTextField(
-                    value = state.githubPat,
-                    onValueChange = vm::setGithubPat,
-                    label = { Text("Personal Access Token") },
-                    modifier = Modifier.weight(1f),
-                    visualTransformation = PasswordVisualTransformation(),
-                    singleLine = true,
-                    placeholder = { Text("ghp_...") },
-                )
-                IconButton(onClick = { showPatHelp = true }) {
-                    Icon(Icons.Filled.HelpOutline, "How to get token", tint = MaterialTheme.colorScheme.primary)
-                }
-            }
-            Text(
-                "Increases GitHub API rate limit from 60 to 5,000 requests/hour.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
 
             // ── Actions ─────────────────────────────────────────────────────
             Button(onClick = vm::save, modifier = Modifier.fillMaxWidth()) { Text("Save Settings") }

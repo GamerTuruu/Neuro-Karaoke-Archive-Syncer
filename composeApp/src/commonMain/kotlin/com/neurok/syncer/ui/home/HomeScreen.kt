@@ -218,7 +218,7 @@ fun HomeScreen(
                 else -> "Sync log"
             }
             if (activeLogs.isNotEmpty()) {
-                LogPanel(label = logLabel, lines = activeLogs, isRunning = state.isFetching || state.isSyncing)
+                LogPanel(label = logLabel, lines = activeLogs, isRunning = state.isFetching || state.isSyncing, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -259,7 +259,7 @@ private fun WarningCard(message: String, onClick: () -> Unit, isInfo: Boolean = 
 }
 
 @Composable
-private fun LogPanel(label: String, lines: List<String>, isRunning: Boolean) {
+private fun LogPanel(label: String, lines: List<String>, isRunning: Boolean, modifier: Modifier = Modifier) {
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     // Track whether user has scrolled up (pauses auto-scroll)
@@ -282,7 +282,7 @@ private fun LogPanel(label: String, lines: List<String>, isRunning: Boolean) {
         if (isAtBottom) userScrolled = false
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -296,7 +296,7 @@ private fun LogPanel(label: String, lines: List<String>, isRunning: Boolean) {
         Surface(
             color = MaterialTheme.colorScheme.surfaceVariant,
             shape = MaterialTheme.shapes.small,
-            modifier = Modifier.fillMaxWidth().height(160.dp),
+            modifier = Modifier.fillMaxWidth().weight(1f),
         ) {
             LazyColumn(
                 state = listState,

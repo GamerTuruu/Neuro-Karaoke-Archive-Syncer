@@ -36,12 +36,11 @@ class FetchMetadataUseCase(
         emit(SyncProgress.Started)
 
         val folderUri = settingsRepository.get(SettingsKeys.LOCAL_FOLDER_URI)
-        val pat = settingsRepository.get(SettingsKeys.GITHUB_PAT)
 
         // Step 1: Fetch GitHub metadata first — this populates the DB so the scan can match
         emit(SyncProgress.FetchingMetadata("Fetching metadata from GitHub…"))
         val metaChanged = try {
-            metadataRepository.syncFromGitHub(pat) { msg ->
+            metadataRepository.syncFromGitHub(null) { msg ->
                 emit(SyncProgress.FetchingMetadata(msg))
             }
         } catch (e: Exception) {

@@ -85,7 +85,6 @@ object SettingsKeys {
     const val SYNC_SCHEDULE_HOURS = "sync_schedule_hours" // "0" = off
     const val ACTIVE_PRESET_ID = "active_preset_id"
     const val DRIVE_API_KEY = "drive_api_key"
-    const val GITHUB_PAT = "github_pat"
     const val LAST_SYNC_TIME_MS = "last_sync_time_ms"
     // Advanced / overridable
     const val DRIVE_FOLDER_ID = "drive_folder_id"   // default: archive folder

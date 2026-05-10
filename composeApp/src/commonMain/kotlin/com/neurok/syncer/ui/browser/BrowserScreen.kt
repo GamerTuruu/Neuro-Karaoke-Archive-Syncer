@@ -74,6 +74,15 @@ fun BrowserScreen(
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
+            } else if (state.songs.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        "No songs yet — run a Fetch from the Sync tab first.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = androidx.compose.ui.Modifier.padding(32.dp),
+                    )
+                }
             } else if (state.isGrouped) {
                 // Collapsible disc-grouped view
                 val grouped = remember(state.songs) {
@@ -206,16 +215,22 @@ private fun SongRow(
         ) {}
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
+            val displayTitle = buildString {
+                val base = if (song.titleOG != null) "${song.titleOG} (${song.title})" else song.title
+                append(base)
+                song.identify?.let { append(" $it") }
+            }
             Text(
-                song.title + (song.titleOG?.let { " — $it" } ?: ""),
+                displayTitle,
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 color = if (song.userIncluded) MaterialTheme.colorScheme.onSurface
                         else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
             )
+            val displayArtist = if (song.artistOG != null) "${song.artistOG} (${song.artist})" else song.artist
             Text(
-                "${song.coverArtist} ⋅ ${song.artist}",
+                displayArtist,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,

@@ -3,6 +3,7 @@ package com.neurok.syncer.ui.navigation
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.Search
@@ -77,7 +78,7 @@ fun AppNavigation(
         NavHost(
             navController = navController,
             startDestination = "sync",
-            modifier = Modifier,
+            modifier = Modifier.padding(padding),
         ) {
             composable("sync") {
                 HomeScreen(
