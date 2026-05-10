@@ -45,14 +45,11 @@ class DownloadSongUseCase(
             driveRepository.refreshIndex(apiKey, ARCHIVE_FOLDER_ID)
         }
 
-        // The Drive filename matches the MP3 filename pattern
-        // We search the Drive index for a file whose name contains our xxHash
-        // (xxHash is embedded in the COMM::ved — but for matching to Drive files,
-        //  we use a best-effort approach: match by disc+track+title in the filename)
-        val driveFileId = findDriveFileId(song.xxHash, song.hjsonPath, apiKey)
-            ?: error("Cannot find Drive file for xxHash=$xxHash (${song.title})")
+        // Find the Drive file: exact match first, then by track-number prefix
+        val (driveFileId, actualFilename) = findDriveFile(song.hjsonPath)
+            ?: error("Cannot find Drive file for \"${song.title}\" (disc ${song.discNumber}, track ${song.track})")
 
-        // Stream download in 256 KB chunks, collecting into a buffer
+        // Stream download in 256 KB chunks
         val chunks = mutableListOf<ByteArray>()
         driveApiSource.downloadFile(
             fileId = driveFileId,
@@ -60,22 +57,18 @@ class DownloadSongUseCase(
             onProgress = onProgress,
             onBytes = { chunk -> chunks.add(chunk) },
         )
-        val totalSize = chunks.sumOf { it.size }
-        val bytes = ByteArray(totalSize)
+        val bytes = ByteArray(chunks.sumOf { it.size })
         var offset = 0
-        for (chunk in chunks) {
-            chunk.copyInto(bytes, offset)
-            offset += chunk.size
-        }
+        for (chunk in chunks) { chunk.copyInto(bytes, offset); offset += chunk.size }
 
-        // Derive the destination filename from the Drive index entry
-        val filename = driveRepository.getFileId(driveFileId)?.let { null }
-            ?: "${song.discNumber.toString().padStart(2, '0')}_${song.track}_${song.title}.mp3"
-        // Use the actual Drive filename if we can retrieve it
-        val driveName = getDriveFilename(song.xxHash)
-        val destName = driveName ?: "${song.title} - ${song.artist}.mp3"
+        // Place the file in the correct disc sub-folder
+        val discFolder = song.hjsonPath.substringBefore("/", "").trim()
+        val targetFolderUri = if (discFolder.isNotBlank())
+            try { fileStorage.getOrCreateSubFolder(folderUri, discFolder) }
+            catch (_: Exception) { folderUri }
+        else folderUri
 
-        val localUri = fileStorage.writeFile(folderUri, destName, bytes)
+        val localUri = fileStorage.writeFile(targetFolderUri, actualFilename, bytes)
 
         // Verify the downloaded file has the correct COMM::ved with matching xxHash
         val commVed = tagHandler.readCommVed(localUri)
@@ -101,27 +94,23 @@ class DownloadSongUseCase(
         songRepository.updateLocalUri(xxHash, localUri, SyncStatus.UP_TO_DATE)
     }
 
-    private suspend fun findDriveFileId(xxHash: String, hjsonPath: String, apiKey: String): String? {
-        // Primary: look up by filename in the Drive index
-        // The Drive filename matches the MP3 filename which contains the xxHash in its COMM::ved
-        // We scan all Drive index entries to find one whose name corresponds to this song
-        // As a heuristic, we use the track info encoded in hjsonPath filename
-        val hjsonFilename = hjsonPath.substringAfterLast("/") // e.g. "059. Neru - Whatever (Neuro.v1).hjson"
-        val trackPrefix = hjsonFilename.substringBefore(".").trim() // "059"
+    /**
+     * Locate the Drive file for a song:
+     * 1. Exact match using the hjson-derived MP3 filename.
+     * 2. Fallback: match by the leading zero-padded track number (e.g. "059").
+     * Returns (fileId, actualDriveFilename) or null if not found.
+     */
+    private suspend fun findDriveFile(hjsonPath: String): Pair<String, String>? {
+        val derivedName = hjsonPath.substringAfterLast('/').removeSuffix(".hjson") + ".mp3"
+        driveRepository.getFileId(derivedName)?.let { return it to derivedName }
 
-        // Scan Drive index for a file whose name starts with the same track number
-        // Drive filenames look like: "DISC 7 - ... - 059. Neru - Whatever (Duet.v1) ....mp3"
-        val allFiles = driveRepository.observeAll().let {
-            // Quick synchronous snapshot — works because we just refreshed
-            emptyList<com.neurok.syncer.domain.model.DriveFile>() // replaced by DB query below
+        val trackPrefix = hjsonPath.substringAfterLast('/').takeWhile { it.isDigit() }
+        if (trackPrefix.isNotEmpty()) {
+            driveRepository.findFileByFilenamePrefix(trackPrefix)
+                ?.let { return it.id to it.name }
         }
-
-        // Use DB helper directly
-        // This is done by the repository's filename match
-        return null // Caller should use a more direct lookup
+        return null
     }
-
-    private suspend fun getDriveFilename(xxHash: String): String? = null
 
     private fun extractXxHash(commVedJson: String): String? = try {
         json.parseToJsonElement(commVedJson).jsonObject["xxHash"]?.jsonPrimitive?.content

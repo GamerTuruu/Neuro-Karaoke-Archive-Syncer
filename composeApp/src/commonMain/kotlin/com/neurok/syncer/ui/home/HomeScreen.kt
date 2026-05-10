@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.neurok.syncer.domain.model.SyncProgress
 import com.neurok.syncer.ui.components.ConfirmDialog
+import com.neurok.syncer.util.formatLocalTime
 import kotlinx.coroutines.launch
 import org.koin.compose.viewmodel.koinViewModel
 
@@ -105,7 +108,7 @@ fun HomeScreen(
 
             // ── Status chips ──────────────────────────────────────────────────
             Text(
-                text = if (state.lastSyncTime > 0L) "Last fetched: ${formatTime(state.lastSyncTime)}" else "Never fetched",
+                text = if (state.lastSyncTime > 0L) "Last fetched: ${formatLocalTime(state.lastSyncTime)}" else "Never fetched",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -154,7 +157,7 @@ fun HomeScreen(
                         when {
                             state.isFetching -> vm.requestCancel()
                             state.isSyncing -> vm.requestCancel()
-                            else -> vm.doFetch()
+                            else -> vm.doFetchThenSync()
                         }
                     },
                     enabled = state.folderConfigured || busy,
@@ -175,7 +178,7 @@ fun HomeScreen(
                             color = MaterialTheme.colorScheme.onErrorContainer,
                         )
                     } else {
-                        Text("Check & Sync")
+                        Text("Fetch & Sync")
                     }
                 }
                 // Dropdown arrow button — distinct color to visually separate from main action
@@ -394,16 +397,16 @@ private fun HowToUseGuide(modifier: Modifier = Modifier) {
         modifier = modifier,
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(12.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Text("Quick Start", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             listOf(
                 "1. Go to Settings → select your karaoke archive folder → Save.",
                 "2. Add a Google Drive API key in Settings to enable song downloads.",
-                "3. Tap \"Check & Sync\" to scan local files and fetch metadata from GitHub.",
+                "3. Tap \"Fetch & Sync\" to scan, fetch metadata, and download new songs in one go.",
                 "4. Review counts: ★ New = not downloaded yet, ↑ Updates = tags changed.",
-                "5. Use ▾ → \"Sync Only\" to apply ID3 tags and download new songs.",
+                "5. Use ▾ → \"Scan Only\" to update metadata without downloading, or \"Sync Only\" to download/tag without re-scanning.",
                 "6. Open Browse tab to filter songs and check ✔ which to include in sync.",
             ).forEach { step ->
                 Text(step, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -431,33 +434,6 @@ private fun StatusChip(icon: String, count: Int, label: String, color: androidx.
             )
         }
     }
-}
-
-/** Convert a Unix-epoch millisecond timestamp to a human-readable date/time string. */
-private fun formatTime(ms: Long): String {
-    // Work in seconds from epoch
-    var remaining = ms / 1000L
-    val secs = (remaining % 60).toInt(); remaining /= 60
-    val mins = (remaining % 60).toInt(); remaining /= 60
-    val hours = (remaining % 24).toInt(); remaining /= 24
-    // remaining is now total days since 1970-01-01
-    var year = 1970
-    while (true) {
-        val daysInYear = if (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) 366L else 365L
-        if (remaining < daysInYear) break
-        remaining -= daysInYear
-        year++
-    }
-    val isLeap = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
-    val monthDays = intArrayOf(31, if (isLeap) 29 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-    var month = 1
-    for (days in monthDays) {
-        if (remaining < days) break
-        remaining -= days
-        month++
-    }
-    val day = (remaining + 1).toInt()
-    return "%04d-%02d-%02d %02d:%02d".format(year, month, day, hours, mins)
 }
 
 private fun formatBytes(bytes: Long): String = when {

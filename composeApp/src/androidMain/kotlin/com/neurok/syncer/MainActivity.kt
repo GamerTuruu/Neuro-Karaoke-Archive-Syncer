@@ -91,8 +91,19 @@ class MainActivity : ComponentActivity() {
                 WorkManager.getInstance(this@MainActivity).cancelUniqueWork(SyncWorker.WORK_NAME)
                 return@launch
             }
+            val syncHour = settingsRepository.getInt(SettingsKeys.SYNC_SCHEDULE_HOUR, 2)
+            // Calculate minutes until next occurrence of configured sync hour (local time)
+            val now = java.util.Calendar.getInstance()
+            val target = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, syncHour)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+                if (!after(now)) add(java.util.Calendar.DAY_OF_YEAR, 1)
+            }
+            val delayMins = maxOf(1L, (target.timeInMillis - now.timeInMillis) / 60_000L)
             val request = PeriodicWorkRequestBuilder<SyncWorker>(hours.toLong(), TimeUnit.HOURS)
-                .setInitialDelay(hours.toLong(), TimeUnit.HOURS)
+                .setInitialDelay(delayMins, TimeUnit.MINUTES)
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)

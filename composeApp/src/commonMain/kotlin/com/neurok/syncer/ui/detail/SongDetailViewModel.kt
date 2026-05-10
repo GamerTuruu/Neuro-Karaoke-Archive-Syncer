@@ -62,9 +62,20 @@ class SongDetailViewModel(
     fun forceReapplyTags() {
         val song = _state.value.song ?: return
         viewModelScope.launch {
-            // localFileUri not in domain model — this would need DB raw access
-            // Placeholder: show a message
-            _state.update { it.copy(message = "Re-apply tags feature coming soon") }
+            val uri = songRepository.getLocalUri(song.xxHash)
+            if (uri == null) {
+                _state.update { it.copy(message = "No local file found — download the song first") }
+                return@launch
+            }
+            _state.update { it.copy(isDownloading = true) }
+            val result = runCatching { applyTagsUseCase.applyForSong(song.xxHash, uri) }
+            _state.update {
+                it.copy(
+                    isDownloading = false,
+                    message = if (result.isSuccess) "Tags re-applied successfully"
+                              else "Failed to re-apply tags: ${result.exceptionOrNull()?.message}",
+                )
+            }
         }
     }
 

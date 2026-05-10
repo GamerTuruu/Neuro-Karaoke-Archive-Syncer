@@ -8,6 +8,8 @@ interface DriveRepository {
     suspend fun refreshIndex(apiKey: String, folderId: String)
     /** Look up a Drive file ID by exact MP3 filename (as it appears in Google Drive). */
     suspend fun getFileId(filename: String): String?
+    /** Fuzzy-match: find the first Drive file whose name starts with [prefix] (e.g. "059"). */
+    suspend fun findFileByFilenamePrefix(prefix: String): DriveFile?
     /** Check if the cached index is stale (older than [maxAgeMs] ago). */
     suspend fun isIndexStale(maxAgeMs: Long = 24 * 60 * 60 * 1000L): Boolean
     /** Clear the cached index. */

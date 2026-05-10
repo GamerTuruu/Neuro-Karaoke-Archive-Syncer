@@ -235,8 +235,7 @@ private fun SongRow(
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = if (song.userIncluded) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
+                color = MaterialTheme.colorScheme.onSurface,
             )
             val displayArtist = buildString {
                 if (song.coverArtist.isNotBlank()) { append(song.coverArtist); append(" - ") }

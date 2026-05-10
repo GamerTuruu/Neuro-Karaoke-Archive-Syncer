@@ -88,9 +88,18 @@ class SyncTagsAndDownloadUseCase(
                 }
 
                 for ((index, song) in toDownload.withIndex()) {
-                    // Derive the MP3 filename that matches the Drive file name
-                    val driveName = song.hjsonPath.substringAfterLast('/').removeSuffix(".hjson") + ".mp3"
-                    val driveFileId = driveRepository.getFileId(driveName) ?: continue
+                    // Find the Drive file: exact match first, then by leading track-number prefix
+                    val derivedName = song.hjsonPath.substringAfterLast('/').removeSuffix(".hjson") + ".mp3"
+                    val trackPrefix = song.hjsonPath.substringAfterLast('/').takeWhile { it.isDigit() }
+                    val driveFile = driveRepository.getFileId(derivedName)
+                        ?.let { com.neurok.syncer.domain.model.DriveFile(it, derivedName) }
+                        ?: (if (trackPrefix.isNotEmpty()) driveRepository.findFileByFilenamePrefix(trackPrefix) else null)
+                    if (driveFile == null) {
+                        emit(SyncProgress.FetchingMetadata("⚠ No Drive file found for \"${song.title}\" (track ${song.track}) — skipping"))
+                        continue
+                    }
+                    val driveFileId = driveFile.id
+                    val actualDriveName = driveFile.name
 
                     // Put the download into the matching DISC sub-folder (create it if needed)
                     val discFolder = song.hjsonPath.substringBefore("/", "").trim()
@@ -99,7 +108,7 @@ class SyncTagsAndDownloadUseCase(
                         catch (_: Exception) { folderUri }
                     else folderUri
 
-                    emit(SyncProgress.Downloading(index + 1, toDownload.size, driveName, 0L, 0L))
+                    emit(SyncProgress.Downloading(index + 1, toDownload.size, actualDriveName, 0L, 0L))
                     songRepository.updateStatus(song.xxHash, SyncStatus.DOWNLOADING)
                     try {
                         val chunks = mutableListOf<ByteArray>()
@@ -113,7 +122,7 @@ class SyncTagsAndDownloadUseCase(
                         var offset = 0
                         for (chunk in chunks) { chunk.copyInto(bytes, offset); offset += chunk.size }
 
-                        val localUri = fileStorage.writeFile(targetFolderUri, driveName, bytes)
+                        val localUri = fileStorage.writeFile(targetFolderUri, actualDriveName, bytes)
                         // Register the file BEFORE tagging — this prevents re-downloading if tagging fails
                         songRepository.updateLocalUri(song.xxHash, localUri, SyncStatus.UP_TO_DATE)
                         downloaded++

@@ -26,6 +26,7 @@ actual class SyncNotifier(private val context: Context) {
     }
 
     actual fun postCompleted(body: String) {
+        nm.cancel(NOTIFICATION_ID)  // clear ongoing spinner before replacing
         ensureChannel()
         nm.notify(
             NOTIFICATION_ID,
@@ -39,6 +40,7 @@ actual class SyncNotifier(private val context: Context) {
     }
 
     actual fun postError(message: String) {
+        nm.cancel(NOTIFICATION_ID)  // clear ongoing spinner before replacing
         ensureChannel()
         nm.notify(
             NOTIFICATION_ID,

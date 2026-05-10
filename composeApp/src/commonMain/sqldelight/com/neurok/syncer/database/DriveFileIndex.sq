@@ -11,6 +11,11 @@ VALUES (?, ?, ?);
 getById:
 SELECT * FROM DriveFileIndex WHERE driveFilename = ?;
 
+-- Find the first Drive file whose name starts with the given track-number prefix
+-- e.g. prefix="059" matches "059. Neru - Whatever.mp3"
+findByFilenamePrefix:
+SELECT * FROM DriveFileIndex WHERE driveFilename LIKE ? || '%' LIMIT 1;
+
 getAll:
 SELECT * FROM DriveFileIndex;
 

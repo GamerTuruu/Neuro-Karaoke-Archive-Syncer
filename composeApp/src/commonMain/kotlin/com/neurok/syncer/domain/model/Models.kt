@@ -83,6 +83,7 @@ sealed class SyncProgress {
 object SettingsKeys {
     const val LOCAL_FOLDER_URI = "local_folder_uri"
     const val SYNC_SCHEDULE_HOURS = "sync_schedule_hours" // "0" = off
+    const val SYNC_SCHEDULE_HOUR = "sync_schedule_hour"   // 0-23 local time, default 2 (2 AM)
     const val ACTIVE_PRESET_ID = "active_preset_id"
     const val DRIVE_API_KEY = "drive_api_key"
     const val LAST_SYNC_TIME_MS = "last_sync_time_ms"

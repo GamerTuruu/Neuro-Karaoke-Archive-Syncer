@@ -30,6 +30,10 @@ class DriveRepositoryImpl(
     override suspend fun getFileId(filename: String): String? =
         queries.getById(filename).executeAsOneOrNull()?.driveFileId
 
+    override suspend fun findFileByFilenamePrefix(prefix: String): DriveFile? =
+        queries.findByFilenamePrefix(prefix).executeAsOneOrNull()
+            ?.let { DriveFile(id = it.driveFileId, name = it.driveFilename) }
+
     override suspend fun isIndexStale(maxAgeMs: Long): Boolean {
         val oldest = queries.getOldestFetchTime().executeAsOneOrNull()?.oldest ?: return true
         return (currentTimeMs() - oldest) > maxAgeMs

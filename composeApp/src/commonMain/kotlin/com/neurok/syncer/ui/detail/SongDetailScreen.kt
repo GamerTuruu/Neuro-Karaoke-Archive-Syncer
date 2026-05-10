@@ -78,7 +78,7 @@ fun SongDetailScreen(
                 // Actions
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = vm::toggleExcluded, modifier = Modifier.weight(1f)) {
-                        Text(if (state.isExcluded) "Include" else "Exclude")
+                        Text(if (state.isExcluded) "Unmark Excluded" else "Mark Excluded")
                     }
                     OutlinedButton(onClick = vm::forceReapplyTags, modifier = Modifier.weight(1f)) {
                         Text("Re-apply Tags")

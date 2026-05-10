@@ -65,6 +65,86 @@ class HomeViewModel(
         viewModelScope.launch { doRefresh() }
     }
 
+    /**
+     * Combined Fetch → Sync in a single job (triggered by the main button).
+     * Runs the full scan+metadata fetch, then immediately applies tags and downloads.
+     * Both [fetchJob] and [syncJob] point to the same coroutine so cancel works from either state.
+     */
+    fun doFetchThenSync() {
+        if (_state.value.isFetching || _state.value.isSyncing) return
+        val job = viewModelScope.launch {
+            // ── Phase 1: Fetch metadata ───────────────────────────────────
+            _state.update { it.copy(isFetching = true, fetchProgress = null, fetchLog = emptyList(), syncLog = emptyList()) }
+            syncNotifier.postProgress("Neuro Karaoke Archive", "Scanning & fetching metadata…")
+            var fetchOk = false
+            try {
+                fetchMetadataUseCase.execute().collect { progress ->
+                    _state.update { s -> s.copy(fetchProgress = progress, fetchLog = s.fetchLog + progressToLogLine(progress)) }
+                    when (progress) {
+                        is SyncProgress.ScanningLocal -> syncNotifier.postProgress("Scanning…", "${progress.current}/${progress.total} files")
+                        is SyncProgress.FetchingMetadata -> syncNotifier.postProgress("Fetching metadata…", progress.message)
+                        is SyncProgress.Completed -> {
+                            fetchOk = true
+                            _state.update { it.copy(isFetching = false, lastFetchTimeMs = System.currentTimeMillis()) }
+                            doRefresh()
+                        }
+                        is SyncProgress.Error -> {
+                            syncNotifier.postError(progress.message)
+                            _state.update { it.copy(isFetching = false, lastFetchTimeMs = System.currentTimeMillis()) }
+                            doRefresh()
+                        }
+                        else -> Unit
+                    }
+                }
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                syncNotifier.cancel()
+                _state.update { it.copy(isFetching = false, fetchProgress = SyncProgress.Error("Fetch cancelled"), fetchLog = it.fetchLog + "Fetch cancelled") }
+                throw kotlinx.coroutines.CancellationException("Fetch cancelled")
+            }
+            if (!fetchOk) { fetchJob = null; syncJob = null; return@launch }
+
+            // ── Phase 2: Sync (tags + download) ──────────────────────────
+            val syncEntireArchive = _state.value.syncEntireArchive
+            _state.update { it.copy(isSyncing = true, syncProgress = null, syncLog = emptyList()) }
+            syncNotifier.postProgress("Neuro Karaoke Archive", "Sync started…")
+            try {
+                syncTagsAndDownloadUseCase.execute(syncEntireArchive).collect { progress ->
+                    _state.update { s -> s.copy(syncProgress = progress, syncLog = s.syncLog + progressToLogLine(progress)) }
+                    when (progress) {
+                        is SyncProgress.ApplyingTags -> syncNotifier.postProgress("Applying tags…", "${progress.current}/${progress.total}: ${progress.songTitle}")
+                        is SyncProgress.Downloading -> syncNotifier.postProgress("Downloading…", "${progress.current}/${progress.total}: ${progress.filename}")
+                        is SyncProgress.Completed -> {
+                            syncNotifier.postCompleted(buildString {
+                                if (progress.downloaded > 0) append("${progress.downloaded} downloaded. ")
+                                if (progress.updated > 0) append("${progress.updated} tagged. ")
+                                if (progress.newAvailable > 0) append("${progress.newAvailable} still need download. ")
+                                if (isEmpty()) append("Everything is up to date.")
+                            })
+                            _state.update { it.copy(isSyncing = false) }
+                            doRefresh()
+                        }
+                        is SyncProgress.Error -> {
+                            syncNotifier.postError(progress.message)
+                            _state.update { it.copy(isSyncing = false) }
+                            doRefresh()
+                        }
+                        else -> Unit
+                    }
+                }
+            } catch (_: kotlinx.coroutines.CancellationException) {
+                syncNotifier.cancel()
+                _state.update { it.copy(isSyncing = false, syncProgress = SyncProgress.Error("Sync cancelled"), syncLog = it.syncLog + "Sync cancelled") }
+                throw kotlinx.coroutines.CancellationException("Sync cancelled")
+            } finally {
+                _state.update { it.copy(isSyncing = false) }
+                fetchJob = null
+                syncJob = null
+            }
+        }
+        fetchJob = job
+        syncJob = job  // same job — cancel from either isFetching or isSyncing state
+    }
+
     /** Fetch: scan local files + pull GitHub metadata. Updates status counts. */
     fun doFetch() {
         if (_state.value.isFetching || _state.value.isSyncing) return

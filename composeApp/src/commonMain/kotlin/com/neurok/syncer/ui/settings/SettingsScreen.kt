@@ -207,6 +207,35 @@ fun SettingsScreen(
                     Text(label, modifier = Modifier.padding(start = 4.dp))
                 }
             }
+            // Show time-of-day picker only when auto-sync is enabled
+            if (state.syncScheduleHours > 0) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(start = 8.dp, top = 4.dp),
+                ) {
+                    Text("Start at:", style = MaterialTheme.typography.bodyMedium)
+                    OutlinedButton(
+                        onClick = { vm.setSyncScheduleHour(state.syncScheduleHour - 1) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    ) { Text("−") }
+                    Text(
+                        "%02d:00".format(state.syncScheduleHour),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.widthIn(min = 50.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                    OutlinedButton(
+                        onClick = { vm.setSyncScheduleHour(state.syncScheduleHour + 1) },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    ) { Text("+") }
+                    Text(
+                        "(local time)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
             // ── Google Drive API Key ────────────────────────────────────────
             SectionTitle("Google Drive API Key")
