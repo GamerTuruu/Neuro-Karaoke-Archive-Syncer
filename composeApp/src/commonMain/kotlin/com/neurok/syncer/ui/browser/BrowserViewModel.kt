@@ -18,8 +18,8 @@ data class BrowserUiState(
     val filterMode: FilterMode = FilterMode.ALL,
     val isGrouped: Boolean = true,
     val isLoading: Boolean = true,
-    /** Disc folder names that are currently expanded. Empty = all collapsed. */
-    val expandedDiscs: Set<String> = emptySet(),
+    /** Disc folder names that are currently collapsed. Empty = all expanded (default). */
+    val collapsedDiscs: Set<String> = emptySet(),
 )
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
@@ -87,11 +87,11 @@ class BrowserViewModel(
 
     fun toggleDiscExpanded(discName: String) {
         _state.update { s ->
-            val expanded = if (s.expandedDiscs.contains(discName))
-                s.expandedDiscs - discName
+            val collapsed = if (s.collapsedDiscs.contains(discName))
+                s.collapsedDiscs - discName
             else
-                s.expandedDiscs + discName
-            s.copy(expandedDiscs = expanded)
+                s.collapsedDiscs + discName
+            s.copy(collapsedDiscs = collapsed)
         }
     }
 

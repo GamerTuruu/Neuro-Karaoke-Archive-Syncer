@@ -88,6 +88,7 @@ class MainActivity : ComponentActivity() {
                 return@launch
             }
             val request = PeriodicWorkRequestBuilder<SyncWorker>(hours.toLong(), TimeUnit.HOURS)
+                .setInitialDelay(hours.toLong(), TimeUnit.HOURS)
                 .setConstraints(
                     Constraints.Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)

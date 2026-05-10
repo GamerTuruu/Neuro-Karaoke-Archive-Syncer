@@ -93,7 +93,7 @@ fun BrowserScreen(
                 }
                 LazyColumn {
                     grouped.forEach { (discName, songs) ->
-                        val isExpanded = discName in state.expandedDiscs
+                        val isExpanded = discName !in state.collapsedDiscs
                         stickyHeader(key = "header_$discName") {
                             DiscHeader(
                                 discName = discName,
