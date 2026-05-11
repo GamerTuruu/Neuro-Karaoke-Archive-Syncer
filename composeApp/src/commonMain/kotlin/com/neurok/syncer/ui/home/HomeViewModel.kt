@@ -38,16 +38,6 @@ data class HomeUiState(
     val isInitializing: Boolean = true,
     /** When false, only songs with userIncluded=true are synced. */
     val syncEntireArchive: Boolean = true,
-    /** UI: show a confirmation dialog when changing sync mode */
-    val showModeConfirm: Boolean = false,
-    /** UI: pending mode value while confirmation is shown */
-    val pendingSyncEntireArchive: Boolean? = null,
-    /** number of checked / unchecked songs (for Home status chips) */
-    val checkedCount: Int = 0,
-    val uncheckedCount: Int = 0,
-    /** Persisted UI states for Home panel visibility */
-    val homeLogVisible: Boolean = true,
-    val homeHowToCollapsed: Boolean = false,
     val showCancelConfirm: Boolean = false,
 )
 
@@ -227,20 +217,6 @@ class HomeViewModel(
 
     fun dismissSyncConfirm() = _state.update { it.copy(showSyncConfirm = false) }
 
-    /** User requested to change sync mode (all vs selected) — show confirmation first. */
-    fun requestChangeSyncMode(newSyncEntire: Boolean) = _state.update { it.copy(showModeConfirm = true, pendingSyncEntireArchive = newSyncEntire) }
-
-    fun dismissChangeSyncMode() = _state.update { it.copy(showModeConfirm = false, pendingSyncEntireArchive = null) }
-
-    fun confirmChangeSyncMode() {
-        val pending = _state.value.pendingSyncEntireArchive ?: return
-        viewModelScope.launch {
-            // persist as "sync selected" = !syncEntireArchive
-            settingsRepository.set(com.neurok.syncer.domain.model.SettingsKeys.SYNC_SELECTED, (!pending).toString())
-            _state.update { it.copy(showModeConfirm = false, pendingSyncEntireArchive = null, syncEntireArchive = pending) }
-        }
-    }
-
     /** Sync: apply ID3 tags to updated songs + download new songs from Drive. */
     fun doSync() {
         _state.update { it.copy(showSyncConfirm = false) }
@@ -295,21 +271,7 @@ class HomeViewModel(
         }
     }
 
-    fun toggleSyncEntireArchive() = requestChangeSyncMode(!_state.value.syncEntireArchive)
-
-    fun setLogVisible(visible: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.set(com.neurok.syncer.domain.model.SettingsKeys.HOME_LOG_VISIBLE, visible.toString())
-            _state.update { it.copy(homeLogVisible = visible) }
-        }
-    }
-
-    fun setHowToCollapsed(collapsed: Boolean) {
-        viewModelScope.launch {
-            settingsRepository.set(com.neurok.syncer.domain.model.SettingsKeys.HOME_HOWTO_COLLAPSED, collapsed.toString())
-            _state.update { it.copy(homeHowToCollapsed = collapsed) }
-        }
-    }
+    fun toggleSyncEntireArchive() = _state.update { it.copy(syncEntireArchive = !it.syncEntireArchive) }
 
     /** Cancel an in-progress Sync. */
     fun cancelSync() { syncJob?.cancel() }
@@ -320,25 +282,11 @@ class HomeViewModel(
         val lastSync = settingsRepository.getLong(SettingsKeys.LAST_SYNC_TIME_MS, 0L)
         val counts = songRepository.getStatusCounts()
         val storage = if (folderUri != null) fileStorage.getFolderSize(folderUri) else 0L
-        // load persisted sync-mode (stored as "sync_selected" boolean)
-        val syncSelected = settingsRepository.get(com.neurok.syncer.domain.model.SettingsKeys.SYNC_SELECTED)?.toBoolean() ?: false
-        // load persisted home panel visibility
-        val logVisible = settingsRepository.get(com.neurok.syncer.domain.model.SettingsKeys.HOME_LOG_VISIBLE)?.toBoolean() ?: true
-        val howToCollapsed = settingsRepository.get(com.neurok.syncer.domain.model.SettingsKeys.HOME_HOWTO_COLLAPSED)?.toBoolean() ?: false
-        // compute checked/unchecked counts for Browse status chips
-        val allSongs = songRepository.getAll()
-        val checked = allSongs.count { it.userIncluded }
-        val unchecked = allSongs.size - checked
         _state.update {
             it.copy(
                 lastSyncTime = lastSync,
                 counts = counts,
                 storageBytes = storage,
-                syncEntireArchive = !syncSelected,
-                checkedCount = checked,
-                uncheckedCount = unchecked,
-                homeLogVisible = logVisible,
-                homeHowToCollapsed = howToCollapsed,
                 folderConfigured = !folderUri.isNullOrBlank(),
                 driveApiKeyConfigured = !apiKey.isNullOrBlank(),
                 isInitializing = false,

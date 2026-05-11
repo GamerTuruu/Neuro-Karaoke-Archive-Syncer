@@ -22,7 +22,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.neurok.syncer.domain.model.SongMetadata
 import com.neurok.syncer.domain.model.SyncStatus
-import androidx.compose.ui.graphics.Color
 import org.koin.compose.viewmodel.koinViewModel
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -33,7 +32,6 @@ fun BrowserScreen(
 ) {
     val vm = koinViewModel<BrowserViewModel>()
     val state by vm.state.collectAsState()
-    // showCheckboxes driven from BrowserViewModel state
 
     Scaffold(
         topBar = {
@@ -118,7 +116,6 @@ fun BrowserScreen(
                             items(songs, key = { it.xxHash }) { song ->
                                 SongRow(
                                     song = song,
-                                    showCheckbox = state.showCheckboxes,
                                     onClick = { onSongClick(song.xxHash) },
                                     onLongClick = { vm.toggleExcluded(song.xxHash, song.syncStatus == SyncStatus.EXCLUDED) },
                                     onToggleIncluded = { vm.toggleUserIncluded(song.xxHash, song.userIncluded) },
@@ -134,7 +131,6 @@ fun BrowserScreen(
                     items(state.songs, key = { it.xxHash }) { song ->
                         SongRow(
                             song = song,
-                            showCheckbox = state.showCheckboxes,
                             onClick = { onSongClick(song.xxHash) },
                             onLongClick = { vm.toggleExcluded(song.xxHash, song.syncStatus == SyncStatus.EXCLUDED) },
                             onToggleIncluded = { vm.toggleUserIncluded(song.xxHash, song.userIncluded) },
@@ -195,7 +191,6 @@ private fun DiscHeader(
 @Composable
 private fun SongRow(
     song: SongMetadata,
-    showCheckbox: Boolean = true,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     onToggleIncluded: () -> Unit,
@@ -207,25 +202,21 @@ private fun SongRow(
             .padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Sync-selection checkbox (only shown in "sync selected" mode)
-        if (showCheckbox) {
-            Checkbox(
-                checked = song.userIncluded,
-                onCheckedChange = { onToggleIncluded() },
-                modifier = Modifier.size(36.dp),
-            )
-        } else {
-            Spacer(modifier = Modifier.size(36.dp))
-        }
+        // Sync-selection checkbox
+        Checkbox(
+            checked = song.userIncluded,
+            onCheckedChange = { onToggleIncluded() },
+            modifier = Modifier.size(36.dp),
+        )
         Spacer(Modifier.width(4.dp))
         // Status badge
         val statusColor = when (song.syncStatus) {
-            SyncStatus.UP_TO_DATE -> Color(0xFF2E7D32) // green
-            SyncStatus.NEEDS_UPDATE -> Color(0xFFF57C00) // orange
-            SyncStatus.NEW_AVAILABLE -> Color(0xFFD32F2F) // red
+            SyncStatus.UP_TO_DATE -> MaterialTheme.colorScheme.primary
+            SyncStatus.NEEDS_UPDATE -> MaterialTheme.colorScheme.secondary
+            SyncStatus.NEW_AVAILABLE -> MaterialTheme.colorScheme.tertiary
             SyncStatus.ORPHAN -> MaterialTheme.colorScheme.error
             SyncStatus.EXCLUDED -> MaterialTheme.colorScheme.outline
-            SyncStatus.DOWNLOADING -> MaterialTheme.colorScheme.primary
+            SyncStatus.DOWNLOADING -> MaterialTheme.colorScheme.tertiary
         }
         Surface(
             shape = MaterialTheme.shapes.extraSmall,

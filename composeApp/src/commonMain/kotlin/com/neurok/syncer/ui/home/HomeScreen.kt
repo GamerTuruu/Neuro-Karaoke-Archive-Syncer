@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -64,20 +63,6 @@ fun HomeScreen(
             confirmLabel = "Sync",
             onConfirm = { vm.doSync() },
             onDismiss = { vm.dismissSyncConfirm() },
-        )
-    }
-
-    if (state.showModeConfirm) {
-        ConfirmDialog(
-            title = "Change sync mode",
-            message = buildString {
-                val pending = state.pendingSyncEntireArchive ?: state.syncEntireArchive
-                if (pending) append("Switch to \"Sync entire archive\"?\nAll songs will be processed when syncing.")
-                else append("Switch to \"Sync selected\"?\nOnly checked songs in Browse will be processed when syncing.")
-            },
-            confirmLabel = "Change",
-            onConfirm = { vm.confirmChangeSyncMode() },
-            onDismiss = { vm.dismissChangeSyncMode() },
         )
     }
 
@@ -140,21 +125,18 @@ fun HomeScreen(
 
             HorizontalDivider()
 
-            // ── Sync mode selector (All vs Selected) ───────────────────────────
+            // ── Sync-entire-archive toggle ────────────────────────────────────
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Checkbox(
                     checked = state.syncEntireArchive,
-                    onCheckedChange = { vm.requestChangeSyncMode(!state.syncEntireArchive) },
+                    onCheckedChange = { vm.toggleSyncEntireArchive() },
                 )
                 Spacer(Modifier.width(4.dp))
                 Column {
-                    Text(
-                        if (state.syncEntireArchive) "Mode: Sync All (entire archive)" else "Mode: Sync Selected (only checked songs)",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+                    Text("Sync entire archive", style = MaterialTheme.typography.bodyMedium)
                     if (!state.syncEntireArchive) {
                         Text(
                             "Only checked songs (in Browse tab) will be synced.",
@@ -169,7 +151,7 @@ fun HomeScreen(
             val busy = state.isFetching || state.isSyncing
             var showDropdown by remember { mutableStateOf(false) }
             Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
-                // Main button — Fetch & Sync (or cancel while running)
+                // Main button — Check & Sync (or cancel while running)
                 Button(
                     onClick = {
                         when {
@@ -256,54 +238,22 @@ fun HomeScreen(
                 state.fetchLog.isNotEmpty() && state.syncLog.isEmpty() -> "Fetch log"
                 else -> "Sync log"
             }
+            var logVisible by remember { mutableStateOf(true) }
             var autoScroll by remember { mutableStateOf(true) }
-            // Auto-open log panel when activity produces log lines
+            // Auto-show and reset autoscroll when a new operation produces log lines
             LaunchedEffect(activeLogs.isNotEmpty()) {
-                if (activeLogs.isNotEmpty()) { vm.setLogVisible(true); autoScroll = true }
+                if (activeLogs.isNotEmpty()) { logVisible = true; autoScroll = true }
             }
-            // Log panel (collapsible, persisted)
             LogPanel(
                 label = logLabel,
                 lines = activeLogs,
                 isRunning = state.isFetching || state.isSyncing,
-                logVisible = state.homeLogVisible,
+                logVisible = logVisible,
                 autoScroll = autoScroll,
-                onToggleVisible = { vm.setLogVisible(!state.homeLogVisible) },
+                onToggleVisible = { logVisible = !logVisible },
                 onToggleAutoScroll = { autoScroll = !autoScroll },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp).weight(1f, fill = false),
+                modifier = Modifier.weight(1f),
             )
-
-            // Quick Start / HowTo — separate surface, persisted collapsed state
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { vm.setHowToCollapsed(!state.homeHowToCollapsed) },
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text("Quick Start", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                        Text(if (state.homeHowToCollapsed) "▶" else "▼", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    if (!state.homeHowToCollapsed) {
-                        Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            listOf(
-                                "1. Go to Settings → select your karaoke archive folder → Save.",
-                                "2. Add a Google Drive API key in Settings to enable song downloads.",
-                                "3. Tap \"Fetch & Sync\" to scan, fetch metadata, and download new songs in one go.",
-                                "4. Review counts: ★ New = not downloaded yet, ↑ Updates = tags changed.",
-                                "5. Use ▾ → \"Scan Only\" to update metadata without downloading, or \"Sync Only\" to download/tag without re-scanning.",
-                                "6. Open Browse tab to filter songs and check ✔ which to include in sync.",
-                            ).forEach { step ->
-                                Text(step, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }
@@ -368,7 +318,7 @@ private fun LogPanel(
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggleVisible),
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -397,7 +347,7 @@ private fun LogPanel(
                         )
                     }
                 }
-                // Show / hide log (clicking anywhere on header also toggles)
+                // Show / hide log
                 TextButton(
                     onClick = onToggleVisible,
                     contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),

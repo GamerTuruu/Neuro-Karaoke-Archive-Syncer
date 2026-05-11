@@ -20,14 +20,11 @@ data class BrowserUiState(
     val isLoading: Boolean = true,
     /** Disc folder names that are currently expanded. Empty = all collapsed (default). */
     val expandedDiscs: Set<String> = emptySet(),
-    /** Whether Browse should show checkboxes for selective sync (driven by app-wide mode) */
-    val showCheckboxes: Boolean = false,
 )
 
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class BrowserViewModel(
     private val songRepository: SongRepository,
-    private val settingsRepository: com.neurok.syncer.domain.repository.SettingsRepository,
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
@@ -36,11 +33,6 @@ class BrowserViewModel(
     val state: StateFlow<BrowserUiState> = _state
 
     init {
-        // Load persisted sync-mode and expose it so UI can hide/show checkboxes
-        viewModelScope.launch {
-            val syncSelected = settingsRepository.get(com.neurok.syncer.domain.model.SettingsKeys.SYNC_SELECTED)?.toBoolean() ?: false
-            _state.update { it.copy(showCheckboxes = syncSelected) }
-        }
         viewModelScope.launch {
             combine(
                 _query.debounce(200),
