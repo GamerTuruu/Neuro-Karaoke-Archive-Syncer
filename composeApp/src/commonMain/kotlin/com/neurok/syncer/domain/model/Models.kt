@@ -97,4 +97,8 @@ object SettingsKeys {
     const val METADATA_ZIP_FOLDER = "metadata_zip_folder"
     /** Maximum number of historical metadata ZIPs to keep on disk. */
     const val METADATA_ZIP_MAX_COUNT = "metadata_zip_max_count"
+    /** Whether user has chosen "sync selected" mode. "true" = only checked songs are synced. Default: false (sync all). */
+    const val SYNC_SELECTED = "sync_selected"
+    const val HOME_LOG_VISIBLE = "home_log_visible"
+    const val HOME_HOWTO_COLLAPSED = "home_howto_collapsed"
 }

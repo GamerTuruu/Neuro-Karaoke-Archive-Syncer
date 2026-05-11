@@ -19,7 +19,8 @@ data class SongDetailUiState(
     val song: SongMetadata? = null,
     val builtTitle: String = "",
     val builtArtist: String = "",
-    val isExcluded: Boolean = false,
+    /** Mirror of SongMetadata.userIncluded — true = included in selective sync */
+    val isIncluded: Boolean = true,
     val isDownloading: Boolean = false,
     val downloadProgress: Float = 0f,
     val message: String? = null,
@@ -45,6 +46,7 @@ class SongDetailViewModel(
                     song = song,
                     builtTitle = preset.buildTitle(song),
                     builtArtist = preset.buildArtist(song),
+                    isIncluded = song.userIncluded,
                 )
             }
         }
@@ -53,9 +55,9 @@ class SongDetailViewModel(
     fun toggleExcluded() {
         val song = _state.value.song ?: return
         viewModelScope.launch {
-            val newExcluded = !_state.value.isExcluded
-            songRepository.updateExcluded(song.xxHash, newExcluded)
-            _state.update { it.copy(isExcluded = newExcluded) }
+            val newIncluded = !_state.value.isIncluded
+            songRepository.updateUserIncluded(song.xxHash, newIncluded)
+            _state.update { it.copy(isIncluded = newIncluded) }
         }
     }
 
